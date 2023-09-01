@@ -1,21 +1,21 @@
 use crate::file::block_id::BlockId;
 use crate::file::file_manager::FileManager;
 use crate::file::page::Page;
-use crate::server::simple_db::SimpleDB;
+use crate::server::oxide_db::OxideDB;
 use std::path::PathBuf;
 
 /// Tests file read and write operations in `FileManager`.
 ///
 /// This test does the following:
-/// - Creates a new SimpleDB instance for debugging with a given path and block size.
+/// - Creates a new OxideDB instance for debugging with a given path and block size.
 /// - Writes a string and an integer to a page.
 /// - Writes the page to a file.
 /// - Reads back the page from the file.
 /// - Checks if the read values match the written values.
 #[test]
 fn file_test() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize a new SimpleDB instance for debugging
-    let db = SimpleDB::new_for_debug(PathBuf::from("filetest"), 400);
+    // Initialize a new OxideDB instance for debugging
+    let db = OxideDB::new_for_debug(PathBuf::from("filetest"), 400);
 
     // Acquire a FileManager to perform file operations
     let file_manager = db.get_file_manager();
