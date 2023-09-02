@@ -4,7 +4,7 @@ use std::hash::{Hash, Hasher};
 /// Represents a unique identifier for a block within a file.
 ///
 /// A `BlockId` is made up of a file name (`String`) and a block number (`u32`).
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BlockId {
     file_name: String,
     block_number: u32,
