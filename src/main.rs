@@ -1,11 +1,8 @@
 mod file;
+mod log;
 mod server;
 
-fn main() {
-    println!("Hello, world!");
-}
+fn main() {}
 
 #[cfg(test)]
-mod tests {
-    mod file_test;
-}
+mod tests;
