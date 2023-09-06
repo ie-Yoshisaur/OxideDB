@@ -167,7 +167,7 @@ impl Page {
         let mut bytes = vec![0; len];
         self.byte_buffer
             .read_exact(&mut bytes)
-            .map_err(PageError::IoError);
+            .map_err(PageError::IoError)?;
         Ok(bytes)
     }
 
