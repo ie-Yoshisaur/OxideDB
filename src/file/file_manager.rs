@@ -75,8 +75,8 @@ impl FileManager {
             .map_err(FileManagerError::Io)?;
 
         let mut bytes = vec![0; self.get_block_size()];
-        file.read_exact(&mut bytes)?;
-        page.write_bytes(0, &bytes);
+        file.read(&mut bytes)?;
+        page.write_bytes(0, &bytes)?;
         Ok(())
     }
 

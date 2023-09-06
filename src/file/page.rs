@@ -10,6 +10,7 @@ const I32_SIZE: usize = size_of::<i32>();
 ///
 /// A `Page` is essentially a wrapper around a byte buffer, providing methods to
 /// read and write different types of data at specific offsets.
+#[derive(Debug)]
 pub struct Page {
     byte_buffer: Cursor<Vec<u8>>,
 }
@@ -167,7 +168,7 @@ impl Page {
         let mut bytes = vec![0; len];
         self.byte_buffer
             .read_exact(&mut bytes)
-            .map_err(PageError::IoError);
+            .map_err(PageError::IoError)?;
         Ok(bytes)
     }
 
