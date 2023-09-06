@@ -2,6 +2,7 @@ use crate::file::page::Page;
 use crate::log::err::LogError;
 use crate::log::log_manager::LogManager;
 use crate::server::oxide_db::OxideDB;
+use std::fs::remove_dir_all;
 use std::path::PathBuf;
 
 /// Tests log management operations in `LogManager`.
@@ -13,11 +14,10 @@ use std::path::PathBuf;
 /// - Reads back the log records and checks if they match the expected records.
 #[test]
 fn log_test() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize a new OxideDB instance for debugging
-    let mut db = OxideDB::new_for_debug(PathBuf::from("logtest"), 400);
-
-    // Acquire a LogManager to perform log operations
-    let mut log_manager = db.get_log_manager();
+    // Create a test directory for OxideDB with a block size of 400 and only 3 buffers.
+    let test_directory = PathBuf::from("logtest");
+    let mut db = OxideDB::new_for_debug(test_directory.clone(), 400, 8);
+    let mut log_manager = db.get_log_manager().lock().unwrap();
 
     // Print the initial empty log file
     print_log_records(&mut log_manager, "The initial empty log file:", &[])?;
@@ -52,6 +52,9 @@ fn log_test() -> Result<(), Box<dyn std::error::Error>> {
         "The log file now has these records:",
         &expected_after_second_batch,
     )?;
+
+    // Cleanup the test directory.
+    remove_dir_all(test_directory);
     Ok(())
 }
 
@@ -72,7 +75,7 @@ fn print_log_records(
     expected_records: &[(String, i32)],
 ) -> Result<(), LogError> {
     println!("{}", msg);
-    let mut idx = 0;
+    let mut index = 0;
     let iterator = log_manager.iterator()?;
     for record in iterator {
         match record {
@@ -88,10 +91,10 @@ fn print_log_records(
 
                 assert_eq!(
                     (string, value),
-                    expected_records[idx],
+                    expected_records[index],
                     "Record does not match expected value"
                 );
-                idx += 1;
+                index += 1;
             }
             Err(e) => {
                 return Err(e);
@@ -99,7 +102,7 @@ fn print_log_records(
         }
     }
     assert_eq!(
-        idx,
+        index,
         expected_records.len(),
         "Number of records does not match expected count"
     );

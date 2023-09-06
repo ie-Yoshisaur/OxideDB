@@ -1,7 +1,7 @@
 use crate::file::block_id::BlockId;
-use crate::file::file_manager::FileManager;
 use crate::file::page::Page;
 use crate::server::oxide_db::OxideDB;
+use std::fs::remove_dir_all;
 use std::path::PathBuf;
 
 /// Tests file read and write operations in `FileManager`.
@@ -14,11 +14,10 @@ use std::path::PathBuf;
 /// - Checks if the read values match the written values.
 #[test]
 fn file_test() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize a new OxideDB instance for debugging
-    let db = OxideDB::new_for_debug(PathBuf::from("filetest"), 400);
-
-    // Acquire a FileManager to perform file operations
-    let file_manager = db.get_file_manager();
+    // Create a test directory for OxideDB with a block size of 400 and only 3 buffers.
+    let test_directory = PathBuf::from("filetest");
+    let db = OxideDB::new_for_debug(test_directory.clone(), 400, 8);
+    let file_manager = db.get_file_manager().lock().unwrap();
 
     // Create a block ID for testing
     let block = BlockId::new("testfile".to_string(), 2);
@@ -50,5 +49,7 @@ fn file_test() -> Result<(), Box<dyn std::error::Error>> {
     // Assert that the read string matches the written string
     assert_eq!(page2.get_string(position1)?, "abcdefghijklm");
 
+    // Cleanup the test directory.
+    remove_dir_all(test_directory)?;
     Ok(())
 }

@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "rust-dbms"
+name = "oxide_db"
 version = "0.1.0"
