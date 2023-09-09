@@ -113,7 +113,21 @@ fn buffer_manager_test() {
                 "Error getting block.\nBacktrace: {:#?}",
                 Backtrace::capture()
             ));
-            println!("buffer[{}] pinned to block {:?}", i, block);
+            println!(
+                "buffer[{}] pinned to block [file {}, block {}]",
+                i,
+                block.get_file_name(),
+                block.get_block_number()
+            );
+
+            // Assertions to check the final state of the buffers
+            match i {
+                0 => assert_eq!(block.get_block_number(), 0, "Expected block 0"),
+                3 => assert_eq!(block.get_block_number(), 0, "Expected block 0"),
+                4 => assert_eq!(block.get_block_number(), 1, "Expected block 1"),
+                5 => assert_eq!(block.get_block_number(), 3, "Expected block 3"),
+                _ => panic!("Unexpected block number for buffer[{}]", i),
+            }
         }
     }
 
