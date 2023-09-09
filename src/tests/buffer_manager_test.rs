@@ -137,4 +137,3 @@ fn buffer_manager_test() {
         Backtrace::capture()
     ));
 }
-
