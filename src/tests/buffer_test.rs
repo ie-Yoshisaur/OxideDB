@@ -1,6 +1,7 @@
 use crate::file::block_id::BlockId;
 use crate::file::page::Page;
 use crate::server::oxide_db::OxideDB;
+use std::backtrace::Backtrace;
 use std::fs::remove_dir_all;
 use std::path::PathBuf;
 
@@ -16,51 +17,93 @@ use std::path::PathBuf;
 /// - Reads the block directly from disk to confirm that the original modification was flushed correctly.
 #[test]
 fn buffer_test() -> Result<(), Box<dyn std::error::Error>> {
-    // Create a test directory for OxideDB with a block size of 400 and only 3 buffers.
-    let test_direcotry = PathBuf::from("buffertest");
-    let db = OxideDB::new_for_debug(test_direcotry.clone(), 400, 3);
-    let buffer_manager = db.get_buffer_manager();
+    // Initialize OxideDB with only 3 buffers
+    let test_directory = PathBuf::from("buffertest");
+    let db = OxideDB::new_for_debug(test_directory.clone(), 400, 3);
+    let buffer_manager = db.get_buffer_manager().lock().expect(&format!(
+        "Locking Buffer Manager Failed\nBacktrace: {:?}",
+        Backtrace::capture()
+    ));
 
-    // Pin a block with id ("testfile", 1)
-    let mut buffer1 = buffer_manager.pin(BlockId::new("testfile".to_string(), 1))?;
-    let page1 = buffer1.get_contents();
-
-    // Read, modify and write back an integer value at offset 80
-    let number1 = page1.get_int(80)?;
-    page1.set_int(80, number1 + 1)?;
-    buffer1.set_modified(1, 0);
-    println!("The new value is {}", number1 + 1);
+    // Pin buffer 1
+    let block1 = BlockId::new("testfile".to_string(), 1);
+    let buffer1 = buffer_manager.pin(block1.clone()).expect(&format!(
+        "Error Pinning Block 1\nBacktrace: {:?}",
+        Backtrace::capture()
+    ));
+    let number1 = {
+        let mut buffer1_guard = buffer1.lock().unwrap(); // handle the lock
+        let page1 = buffer1_guard.get_contents();
+        let mut number1 = page1.get_int(80).expect(&format!(
+            "Error Reading int at Offset 80 in Block 1\nBacktrace: {:?}",
+            Backtrace::capture()
+        ));
+        number1 += 1;
+        page1.set_int(80, number1).expect(&format!(
+            "Error Writing int at Offset 80 in Block 1\nBacktrace: {:?}",
+            Backtrace::capture()
+        ));
+        buffer1_guard.set_modified(1, 0); // Placeholder values
+        println!("The new value is {}", number1 + 1);
+        number1
+    };
 
     // Unpin the modified block
-    buffer_manager.unpin(buffer1)?;
+    buffer_manager.unpin(buffer1).expect(&format!(
+        "Error Unpinning Block 1\nBacktrace: {:?}",
+        Backtrace::capture()
+    ));
 
     // Pin additional blocks. One of these will trigger a flush for buffer1.
-    let block2 = {
-        let buffer2 = buffer_manager.pin(BlockId::new("testfile".to_string(), 2))?;
-        buffer2.get_block().ok_or("Failed to get block")?.clone()
-    };
-    {
-        let _buffer3 = buffer_manager.pin(BlockId::new("testfile".to_string(), 3))?;
-    }
-    {
-        let _buffer4 = buffer_manager.pin(BlockId::new("testfile".to_string(), 4))?;
-    }
+    let block2 = BlockId::new("testfile".to_string(), 2);
+    let mut buffer2 = buffer_manager.pin(block2).expect(&format!(
+        "Error Pinning Block 2\nBacktrace: {:?}",
+        Backtrace::capture()
+    ));
+    let block3 = BlockId::new("testfile".to_string(), 3);
+    let _buffer3 = buffer_manager.pin(block3).expect(&format!(
+        "Error Pinning Block 3\nBacktrace: {:?}",
+        Backtrace::capture()
+    ));
+    let block4 = BlockId::new("testfile".to_string(), 4);
+    let _buffer4 = buffer_manager.pin(block4).expect(&format!(
+        "Error Pinning Block 4\nBacktrace: {:?}",
+        Backtrace::capture()
+    ));
 
-    // Re-read the flushed block to check if the modification is preserved
-    if let Some(mut buffer2) = buffer_manager.find_existing_buffer(&block2)? {
-        buffer_manager.unpin(buffer2)?;
-        buffer2 = buffer_manager.pin(BlockId::new("testfile".to_string(), 1))?;
-        let page2 = buffer2.get_contents();
-        let old_value = page2.get_int(80)?;
-        println!("Old value before set: {}", old_value);
+    // Unpin buffer 2 and pin buffer 1 again
+    buffer_manager.unpin(buffer2).expect(&format!(
+        "Error Unpinning Block 2\nBacktrace: {:?}",
+        Backtrace::capture()
+    ));
+    buffer2 = buffer_manager.pin(block1).expect(&format!(
+        "Error Pinning Block 1\nBacktrace: {:?}",
+        Backtrace::capture()
+    ));
+    {
+        let mut buffer2_guard = buffer2.lock().unwrap();
+        let page2 = buffer2_guard.get_contents();
+        let old_value = page2.get_int(80).expect(&format!(
+            "Error Reading int at Offset 80 in Block 1\nBacktrace: {:?}",
+            Backtrace::capture()
+        ));
 
-        // Modify the block again
-        page2.set_int(80, 9999)?;
+        // Assert that the value read is the same as the old value
+        assert_eq!(
+            old_value, number1,
+            "Read value does not match the old value"
+        );
+
+        page2.set_int(80, 9999).expect(&format!(
+            "Error Writing int at Offset 80 in Block 1\nBacktrace: {:?}",
+            Backtrace::capture()
+        )); // This modification
         let new_value = page2
             .get_int(80)
             .map_err(|_| "Failed to get integer at offset 80")?;
-        buffer2.set_modified(1, 0);
-        println!("New value after set: {}", new_value);
+        // Assert that the value read is the same as the new value
+        assert_eq!(new_value, 9999, "Read value does not match the new value");
+        buffer2_guard.set_modified(1, 0); // won't get written to disk
 
         // Read the block directly from disk to confirm that the original modification was flushed
         let file_manager = db
@@ -70,12 +113,12 @@ fn buffer_test() -> Result<(), Box<dyn std::error::Error>> {
         let mut page_to_check = Page::new_from_blocksize(400);
         let block_to_check = BlockId::new("testfile".to_string(), 1);
         file_manager.read(&block_to_check, &mut page_to_check)?;
-        let flushed_value = page_to_check.get_int(80)?;
-
-        assert_eq!(flushed_value, number1 + 1); // Assertion to verify flushed value
+        let value_on_disk = page_to_check.get_int(80)?;
+        assert_eq!(value_on_disk, number1);
     }
 
-    // Cleanup the test directory
-    remove_dir_all(test_direcotry)?;
+    // Cleanup
+    remove_dir_all(test_directory)?;
+
     Ok(())
 }

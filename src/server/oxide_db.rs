@@ -10,7 +10,7 @@ pub struct OxideDB {
     block_size: usize,
     file_manager: Arc<Mutex<FileManager>>,
     log_manager: Arc<Mutex<LogManager>>,
-    buffer_manager: BufferManager,
+    buffer_manager: Arc<Mutex<BufferManager>>,
 }
 
 impl OxideDB {
@@ -19,7 +19,7 @@ impl OxideDB {
             FileManager::new(db_directory, block_size).unwrap(),
         ));
 
-        let block_size_fetched = {
+        let block_size = {
             let fm = file_manager.lock().unwrap();
             fm.get_block_size()
         };
@@ -28,15 +28,17 @@ impl OxideDB {
             LogManager::new(Arc::clone(&file_manager), LOG_FILE.to_string()).unwrap(),
         ));
 
-        let buffer_manager = BufferManager::new(
-            Arc::clone(&file_manager),
-            Arc::clone(&log_manager),
-            buffer_size,
-        )
-        .unwrap();
+        let buffer_manager = Arc::new(Mutex::new(
+            BufferManager::new(
+                Arc::clone(&file_manager),
+                Arc::clone(&log_manager),
+                buffer_size,
+            )
+            .unwrap(),
+        ));
 
         OxideDB {
-            block_size: block_size_fetched,
+            block_size,
             file_manager,
             log_manager,
             buffer_manager,
@@ -51,7 +53,7 @@ impl OxideDB {
         &self.log_manager
     }
 
-    pub fn get_buffer_manager(&self) -> &BufferManager {
+    pub fn get_buffer_manager(&self) -> &Arc<Mutex<BufferManager>> {
         &self.buffer_manager
     }
 }

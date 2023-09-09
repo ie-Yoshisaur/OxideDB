@@ -1,6 +1,5 @@
 use crate::buffer::err::BufferError;
 use crate::file::block_id::BlockId;
-use crate::file::err::FileManagerError;
 use crate::file::file_manager::FileManager;
 use crate::file::page::Page;
 use crate::log::log_manager::LogManager;
@@ -38,7 +37,7 @@ impl Buffer {
             .lock()
             .map_err(|_| BufferError::MutexLockError)?
             .get_block_size();
-        let contents = Page::new_from_blocksize(block_size);
+        let mut contents = Page::new_from_blocksize(block_size);
         Ok(Buffer {
             file_manager,
             log_manager,
@@ -80,13 +79,13 @@ impl Buffer {
 
     /// Writes the buffer to its disk block if it is dirty.
     /// This function locks the LogManager and FileManager to ensure thread safety.
-    pub fn assign_to_block(&mut self, b: BlockId) -> Result<(), BufferError> {
+    pub fn assign_to_block(&mut self, block: BlockId) -> Result<(), BufferError> {
         self.flush()?;
-        self.block = Some(b.clone());
+        self.block = Some(block.clone());
         self.file_manager
             .lock()
             .map_err(|_| BufferError::MutexLockError)?
-            .read(&b, &mut self.contents)
+            .read(&block, &mut self.contents)
             .map_err(BufferError::from)?;
 
         self.pins = 0;
@@ -106,7 +105,7 @@ impl Buffer {
                     .map_err(BufferError::from)?;
             }
             if let Some(ref block) = self.block {
-                let mut file_manager = self
+                let file_manager = self
                     .file_manager
                     .lock()
                     .map_err(|_| BufferError::MutexLockError)?;

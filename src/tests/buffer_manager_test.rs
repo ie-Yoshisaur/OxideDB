@@ -1,5 +1,6 @@
 use crate::file::block_id::BlockId;
 use crate::server::oxide_db::OxideDB;
+use std::backtrace::Backtrace;
 use std::fs::remove_dir_all;
 use std::path::PathBuf;
 
@@ -14,86 +15,111 @@ use std::path::PathBuf;
 /// - Frees up a buffer by unpinning a block and validates that pinning a new block is now possible.
 /// - Outputs the final state of which blocks are pinned to which buffers.
 #[test]
-fn buffer_manager_test() -> Result<(), Box<dyn std::error::Error>> {
-    // Create a test directory for OxideDB with a block size of 400 and only 3 buffers.
+fn buffer_manager_test() {
+    // Initialize OxideDB with only 3 buffers
     let test_directory = PathBuf::from("buffermgrtest");
     let db = OxideDB::new_for_debug(test_directory.clone(), 400, 3);
     let buffer_manager = db.get_buffer_manager();
 
-    let mut blocks: [Option<BlockId>; 6] = Default::default();
+    let mut buffers = vec![None; 6]; // Array to hold 6 optional Buffer references
 
-    // Pin the first three blocks and store their IDs in an array.
-    for i in 0usize..3 {
-        let buffer = buffer_manager.pin(BlockId::new("testfile".to_string(), i as u32))?;
-        let block = buffer.get_block().ok_or("Failed to get block")?;
-        blocks[i] = Some(block.clone());
+    // Pin blocks 0, 1, and 2
+    for i in 0..3 {
+        let buffer_arc = buffer_manager
+            .lock()
+            .unwrap()
+            .pin(BlockId::new("testfile".to_string(), i))
+            .expect(&format!(
+                "Error pinning block.\nBacktrace: {:#?}",
+                Backtrace::capture()
+            ));
+        buffers[i as usize] = Some(buffer_arc);
     }
 
-    // Unpin one of the pinned blocks.
-    if let Some(buffer) = buffer_manager
-        .find_existing_buffer(&blocks[1].as_ref().ok_or("Block should exist")?.clone())?
+    // Unpin block 1
+    buffer_manager
+        .lock()
+        .unwrap()
+        .unpin(buffers[1].take().unwrap())
+        .expect(&format!(
+            "Error unpinning block.\nBacktrace: {:#?}",
+            Backtrace::capture()
+        ));
+
+    // Pin block 0 again and repin block 1
+    for i in 0..2 {
+        let buffer_arc = buffer_manager
+            .lock()
+            .unwrap()
+            .pin(BlockId::new("testfile".to_string(), i))
+            .expect(&format!(
+                "Error pinning block.\nBacktrace: {:#?}",
+                Backtrace::capture()
+            ));
+        buffers[3 + i as usize] = Some(buffer_arc);
+    }
+
+    // Check and display the number of available buffers
+    let available_buffers = *buffer_manager
+        .lock()
+        .unwrap()
+        .get_number_available()
+        .lock()
+        .unwrap();
+    println!("Available buffers: {}", available_buffers);
+    assert_eq!(available_buffers, 0, "Expected 0 available buffers");
+
+    // Try to pin block 3 (should fail)
+    match buffer_manager
+        .lock()
+        .unwrap()
+        .pin(BlockId::new("testfile".to_string(), 3))
     {
-        buffer_manager.unpin(buffer)?;
+        Ok(_) => panic!("Should not be able to pin block 3"),
+        Err(_) => println!("Exception: No available buffers\n"),
     }
 
-    // Pin two more blocks
-    {
-        // Block 0 pinned twice
-        let buffer = buffer_manager.pin(BlockId::new("testfile".to_string(), 0))?;
-        let block = buffer.get_block().ok_or("Failed to get block")?;
-        blocks[3] = Some(block.clone());
-    }
-    {
-        // Block 1 repinned
-        let buffer = buffer_manager.pin(BlockId::new("testfile".to_string(), 1))?;
-        let block = buffer.get_block().ok_or("Failed to get block")?;
-        blocks[4] = Some(block.clone());
-    }
+    // Unpin block 2
+    buffer_manager
+        .lock()
+        .unwrap()
+        .unpin(buffers[2].take().unwrap())
+        .expect(&format!(
+            "Error unpinning block.\nBacktrace: {:#?}",
+            Backtrace::capture()
+        ));
 
-    // Check and display the number of available buffers.
-    {
-        let available_buffers = buffer_manager.get_number_available()?;
-        println!("Available buffers: {}", *available_buffers);
-    }
+    // Now pin block 3 (should succeed)
+    buffers[5] = Some(
+        buffer_manager
+            .lock()
+            .unwrap()
+            .pin(BlockId::new("testfile".to_string(), 3))
+            .expect(&format!(
+                "Error pinning block.\nBacktrace: {:#?}",
+                Backtrace::capture()
+            )),
+    );
 
-    // Attempt to pin a block when no buffers are expected to be available.
-    println!("Attempting to pin block 3...");
-    {
-        match buffer_manager.pin(BlockId::new("testfile".to_string(), 3)) {
-            Ok(buffer) => {
-                let block = buffer.get_block().ok_or("Failed to get block")?;
-                blocks[5] = Some(block.clone())
-            }
-            Err(_) => println!("Exception: No available buffers\n"),
-        }
-    }
-
-    // Unpin another block to free up a buffer.
-    if let Some(buffer) = buffer_manager
-        .find_existing_buffer(&blocks[2].as_ref().ok_or("Block should exist")?.clone())?
-    {
-        buffer_manager.unpin(buffer)?;
-    }
-
-    // Try to pin the block again (this should now work due to the freed buffer).
-    let buffer = buffer_manager.pin(BlockId::new("testfile".to_string(), 3))?;
-    let block = buffer.get_block().ok_or("Failed to get block")?;
-    blocks[5] = Some(block.clone());
-
-    // Output the final allocation of blocks to buffers.
+    // Final buffer allocation
     println!("Final Buffer Allocation:");
-    for (i, block) in blocks.iter().enumerate() {
-        if let Some(b) = block {
-            println!(
-                "buffer{} pinned to block [file {}, block {}]",
-                i,
-                b.get_file_name(),
-                b.get_block_number()
-            );
+    for (i, buffer) in buffers.iter().enumerate() {
+        if let Some(buffer) = buffer {
+            let buffer_guard = buffer.lock().expect(&format!(
+                "Failed to lock buffer.\nBacktrace: {:#?}",
+                Backtrace::capture()
+            ));
+            let block = buffer_guard.get_block().expect(&format!(
+                "Error getting block.\nBacktrace: {:#?}",
+                Backtrace::capture()
+            ));
+            println!("buffer[{}] pinned to block {:?}", i, block);
         }
     }
 
-    // Cleanup the test directory.
-    remove_dir_all(test_directory)?;
-    Ok(())
+    // Cleanup
+    remove_dir_all(test_directory).expect(&format!(
+        "Failed to remove test directory.\nBacktrace: {:#?}",
+        Backtrace::capture()
+    ));
 }

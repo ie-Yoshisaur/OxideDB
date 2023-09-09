@@ -4,7 +4,7 @@ use crate::buffer::err::BufferError;
 use crate::file::block_id::BlockId;
 use crate::file::file_manager::FileManager;
 use crate::log::log_manager::LogManager;
-use std::sync::{Arc, Condvar, Mutex, MutexGuard};
+use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
 /// Manages a pool of buffers.
@@ -12,8 +12,8 @@ use std::time::{Duration, Instant};
 /// `BufferManager` is responsible for allocating buffers to disk blocks,
 /// tracking the availability of buffers, and ensuring safe concurrent access.
 pub struct BufferManager {
-    buffer_pool: Vec<Mutex<Buffer>>,
-    number_available: Mutex<usize>,
+    buffer_pool: Vec<Arc<Mutex<Buffer>>>,
+    number_available: Arc<Mutex<usize>>,
     max_time: u64,
     condvar: Condvar,
 }
@@ -31,10 +31,10 @@ impl BufferManager {
         log_manager: Arc<Mutex<LogManager>>,
         number_buffers: usize,
     ) -> Result<Self, BufferError> {
-        let buffer_pool: Result<Vec<Mutex<Buffer>>, BufferError> = (0..number_buffers)
+        let buffer_pool: Result<Vec<Arc<Mutex<Buffer>>>, BufferError> = (0..number_buffers)
             .map(|_| {
                 let buffer = Buffer::new(file_manager.clone(), log_manager.clone())?;
-                Ok(Mutex::new(buffer))
+                Ok(Arc::new(Mutex::new(buffer)))
             })
             .collect();
 
@@ -42,23 +42,15 @@ impl BufferManager {
 
         Ok(Self {
             buffer_pool,
-            number_available: Mutex::new(number_buffers),
+            number_available: Arc::new(Mutex::new(number_buffers)),
             max_time: 10000,
             condvar: Condvar::new(),
         })
     }
 
-    /// Returns the number of available buffers.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the mutex lock is poisoned.
-    pub fn get_number_available(&self) -> Result<MutexGuard<usize>, BufferError> {
-        let number_available = self
-            .number_available
-            .lock()
-            .map_err(|_| BufferError::MutexLockError)?;
-        Ok(number_available)
+    /// Returns the number of available buffers as an `Arc<Mutex<usize>>`.
+    pub fn get_number_available(&self) -> Arc<Mutex<usize>> {
+        self.number_available.clone()
     }
 
     /// Flushes all dirty buffers associated with a transaction to disk.
@@ -71,12 +63,10 @@ impl BufferManager {
     ///
     /// Returns an error if the mutex lock is poisoned or if flushing fails.
     pub fn flush_all(&self, txnum: i32) -> Result<(), BufferError> {
-        for buffer_mutex in &self.buffer_pool {
-            let mut buffer = buffer_mutex
-                .lock()
-                .map_err(|_| BufferError::MutexLockError)?;
-            if buffer.modifying_transaction() == txnum {
-                buffer.flush()?; // Assuming `flush` returns a `Result`
+        for buffer_arc in &self.buffer_pool {
+            let mut buffer_guard = buffer_arc.lock().map_err(|_| BufferError::MutexLockError)?;
+            if buffer_guard.modifying_transaction() == txnum {
+                buffer_guard.flush()?;
             }
         }
         Ok(())
@@ -86,16 +76,19 @@ impl BufferManager {
     ///
     /// # Arguments
     ///
-    /// * `buffer`: A mutex guard that provides access to a buffer.
+    /// * `buffer_arc`: An `Arc<Mutex<Buffer>>` that provides access to a buffer.
     ///
     /// # Errors
     ///
     /// Returns an error if the mutex lock is poisoned.
-    pub fn unpin(&self, buffer: MutexGuard<Buffer>) -> Result<(), BufferError> {
-        let mut buffer = buffer;
-        buffer.unpin();
-        let mut number_available = self.get_number_available()?;
-        if !buffer.is_pinned() {
+    pub fn unpin(&self, buffer_arc: Arc<Mutex<Buffer>>) -> Result<(), BufferError> {
+        let mut buffer_guard = buffer_arc.lock().map_err(|_| BufferError::MutexLockError)?;
+        buffer_guard.unpin();
+        let mut number_available = self
+            .number_available
+            .lock()
+            .map_err(|_| BufferError::MutexLockError)?;
+        if !buffer_guard.is_pinned() {
             *number_available += 1;
             self.condvar.notify_all();
         }
@@ -111,24 +104,23 @@ impl BufferManager {
     /// # Errors
     ///
     /// Returns an error if no buffer is available or if the mutex lock is poisoned.
-    pub fn pin(&self, block: BlockId) -> Result<MutexGuard<Buffer>, BufferError> {
+    pub fn pin(&self, block: BlockId) -> Result<Arc<Mutex<Buffer>>, BufferError> {
         let start_time = Instant::now();
         let timeout = Duration::from_millis(self.max_time);
         loop {
-            if let Some(buffer) = self.try_to_pin(&block)? {
-                return Ok(buffer);
+            if let Some(buffer_arc) = self.try_to_pin(&block)? {
+                return Ok(buffer_arc);
             }
             if self.waiting_too_long(start_time) {
                 return Err(BufferError::from(BufferAbortException));
             }
-            let number_available = self.get_number_available()?;
+            let number_available = self.get_number_available();
 
             let (_lock, timeout_result) = self
                 .condvar
-                .wait_timeout(number_available, timeout)
+                .wait_timeout(number_available.lock().unwrap(), timeout)
                 .map_err(|_| BufferError::MutexLockError)?;
 
-            // Handle timeout_result as needed. It is a bool that's true if a timeout occurred.
             if timeout_result.timed_out() {
                 return Err(BufferError::from(BufferAbortException));
             }
@@ -139,92 +131,86 @@ impl BufferManager {
     ///
     /// # Arguments
     ///
-    /// * `block`: The `BlockId` for which a buffer is required.
-    ///
-    /// # Returns
-    ///
-    /// Returns an `Option` containing a `MutexGuard` for a `Buffer` if one is available.
+    /// * `block`: The disk block to be pinned.
     ///
     /// # Errors
     ///
     /// Returns an error if the mutex lock is poisoned.
-    fn try_to_pin(&self, block: &BlockId) -> Result<Option<MutexGuard<Buffer>>, BufferError> {
-        let mut number_available = self.get_number_available()?;
-        if let Some(mut buffer) = self.find_existing_buffer(block)? {
-            if !buffer.is_pinned() {
+    fn try_to_pin(&self, block: &BlockId) -> Result<Option<Arc<Mutex<Buffer>>>, BufferError> {
+        if let Some(buffer_arc) = self.find_existing_buffer(block)? {
+            let mut buffer_guard = buffer_arc.lock().map_err(|_| BufferError::MutexLockError)?;
+            if !buffer_guard.is_pinned() {
+                let mut number_available = self
+                    .number_available
+                    .lock()
+                    .map_err(|_| BufferError::MutexLockError)?;
                 *number_available -= 1;
             }
-            buffer.pin();
-            return Ok(Some(buffer));
+            buffer_guard.pin();
+            return Ok(Some(buffer_arc.clone()));
         }
-        if let Some(mut buffer) = self.choose_unpinned_buffer()? {
-            buffer.assign_to_block(block.clone());
+
+        if let Some(buffer_arc) = self.choose_unpinned_buffer()?.clone() {
+            let mut buffer_guard = buffer_arc.lock().map_err(|_| BufferError::MutexLockError)?;
+            let mut number_available = self
+                .number_available
+                .lock()
+                .map_err(|_| BufferError::MutexLockError)?;
+            buffer_guard.assign_to_block(block.clone())?;
             *number_available -= 1;
-            buffer.pin();
-            return Ok(Some(buffer));
+            buffer_guard.pin();
+            return Ok(Some(buffer_arc.clone()));
         }
+
         Ok(None)
     }
 
-    /// Finds an existing buffer for the given block.
+    /// Finds an existing buffer for the provided block, if available.
     ///
     /// # Arguments
     ///
-    /// * `block`: The `BlockId` to find the buffer for.
-    ///
-    /// # Returns
-    ///
-    /// Returns an `Option` containing a `MutexGuard` for a `Buffer` if one exists for the block.
+    /// * `block`: The disk block to search for.
     ///
     /// # Errors
     ///
     /// Returns an error if the mutex lock is poisoned.
-    pub fn find_existing_buffer(
+    fn find_existing_buffer(
         &self,
         block: &BlockId,
-    ) -> Result<Option<MutexGuard<Buffer>>, BufferError> {
-        for buffer_mutex in &self.buffer_pool {
-            let buffer = buffer_mutex
-                .lock()
-                .map_err(|_| BufferError::MutexLockError)?;
-            if buffer.get_block().map_or(false, |b| *b == *block) {
-                return Ok(Some(buffer));
+    ) -> Result<Option<Arc<Mutex<Buffer>>>, BufferError> {
+        for buffer_arc in &self.buffer_pool {
+            let buffer_guard = buffer_arc.lock().map_err(|_| BufferError::MutexLockError)?;
+            if buffer_guard.get_block().as_ref() == Some(&block) {
+                return Ok(Some(buffer_arc.clone()));
             }
         }
         Ok(None)
     }
 
-    /// Chooses an unpinned buffer from the buffer pool.
-    ///
-    /// # Returns
-    ///
-    /// Returns an `Option` containing a `MutexGuard` for a `Buffer` if an unpinned one is available.
+    /// Chooses an unpinned buffer, if available.
     ///
     /// # Errors
     ///
     /// Returns an error if the mutex lock is poisoned.
-    fn choose_unpinned_buffer(&self) -> Result<Option<MutexGuard<Buffer>>, BufferError> {
-        for buffer_mutex in &self.buffer_pool {
-            let buffer = buffer_mutex
-                .lock()
-                .map_err(|_| BufferError::MutexLockError)?;
-            if !buffer.is_pinned() {
-                return Ok(Some(buffer));
+    fn choose_unpinned_buffer(&self) -> Result<Option<Arc<Mutex<Buffer>>>, BufferError> {
+        for buffer_arc in &self.buffer_pool {
+            let buffer_guard = buffer_arc.lock().map_err(|_| BufferError::MutexLockError)?;
+            if !buffer_guard.is_pinned() {
+                return Ok(Some(buffer_arc.clone()));
             }
         }
         Ok(None)
     }
 
-    /// Checks if waiting for a buffer has exceeded the maximum time.
+    /// Checks if the system has been waiting too long to pin a buffer.
     ///
     /// # Arguments
     ///
-    /// * `start_time`: The `Instant` at which the waiting started.
+    /// * `start_time`: The instant at which the system started waiting.
     ///
-    /// # Returns
-    ///
-    /// Returns `true` if waiting has exceeded the maximum time, otherwise `false`.
+    /// Returns `true` if the system has been waiting too long, otherwise `false`.
     fn waiting_too_long(&self, start_time: Instant) -> bool {
-        start_time.elapsed() > Duration::from_millis(self.max_time)
+        let duration = Instant::now().duration_since(start_time);
+        duration.as_millis() > self.max_time.into()
     }
 }
