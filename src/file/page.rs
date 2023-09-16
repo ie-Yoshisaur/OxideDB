@@ -120,7 +120,7 @@ impl Page {
     ///
     /// Returns an `Err` if the read operation fails or the bytes are not valid UTF-8.
     pub fn get_string(&mut self, offset: usize) -> Result<String, PageError> {
-        let bytes = self.get_bytes(offset)?; // `?`を使ってエラーを伝播
+        let bytes = self.get_bytes(offset)?;
         String::from_utf8(bytes).map_err(PageError::Utf8Error)
     }
 

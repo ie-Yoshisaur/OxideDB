@@ -17,7 +17,7 @@ use std::path::PathBuf;
 #[test]
 fn buffer_manager_test() {
     // Initialize OxideDB with only 3 buffers
-    let test_directory = PathBuf::from("buffermgrtest");
+    let test_directory = PathBuf::from("buffermanagertest");
     let db = OxideDB::new_for_debug(test_directory.clone(), 400, 3);
     let buffer_manager = db.get_buffer_manager();
 
@@ -25,7 +25,7 @@ fn buffer_manager_test() {
 
     // Pin blocks 0, 1, and 2
     for i in 0..3 {
-        let buffer_arc = buffer_manager
+        let buffer = buffer_manager
             .lock()
             .unwrap()
             .pin(BlockId::new("testfile".to_string(), i))
@@ -33,7 +33,7 @@ fn buffer_manager_test() {
                 "Error pinning block.\nBacktrace: {:#?}",
                 Backtrace::capture()
             ));
-        buffers[i as usize] = Some(buffer_arc);
+        buffers[i as usize] = Some(buffer);
     }
 
     // Unpin block 1
@@ -48,7 +48,7 @@ fn buffer_manager_test() {
 
     // Pin block 0 again and repin block 1
     for i in 0..2 {
-        let buffer_arc = buffer_manager
+        let buffer = buffer_manager
             .lock()
             .unwrap()
             .pin(BlockId::new("testfile".to_string(), i))
@@ -56,7 +56,7 @@ fn buffer_manager_test() {
                 "Error pinning block.\nBacktrace: {:#?}",
                 Backtrace::capture()
             ));
-        buffers[3 + i as usize] = Some(buffer_arc);
+        buffers[3 + i as usize] = Some(buffer);
     }
 
     // Check and display the number of available buffers
@@ -105,20 +105,15 @@ fn buffer_manager_test() {
     println!("Final Buffer Allocation:");
     for (i, buffer) in buffers.iter().enumerate() {
         if let Some(buffer) = buffer {
-            let buffer_guard = buffer.lock().expect(&format!(
+            let locked_buffer = buffer.lock().expect(&format!(
                 "Failed to lock buffer.\nBacktrace: {:#?}",
                 Backtrace::capture()
             ));
-            let block = buffer_guard.get_block().expect(&format!(
+            let block = locked_buffer.get_block().expect(&format!(
                 "Error getting block.\nBacktrace: {:#?}",
                 Backtrace::capture()
             ));
-            println!(
-                "buffer[{}] pinned to block [file {}, block {}]",
-                i,
-                block.get_file_name(),
-                block.get_block_number()
-            );
+            println!("buffer[{}] pinned to block {}", i, block);
 
             // Assertions to check the final state of the buffers
             match i {

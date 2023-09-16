@@ -38,7 +38,7 @@ impl LogManager {
                 .map_err(|e| LogError::FileManagerError(e.to_string()))?
         } else {
             let fm = file_manager.lock().unwrap();
-            let block = BlockId::new(log_file.clone(), logsize - 1);
+            let block = BlockId::new(log_file.clone(), logsize as i32 - 1);
             fm.read(&block, &mut log_page)
                 .map_err(|e| LogError::FileManagerError(e.to_string()))?;
             block

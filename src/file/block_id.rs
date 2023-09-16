@@ -3,11 +3,11 @@ use std::hash::{Hash, Hasher};
 
 /// Represents a unique identifier for a block within a file.
 ///
-/// A `BlockId` is made up of a file name (`String`) and a block number (`u32`).
+/// A `BlockId` is made up of a file name (`String`) and a block number (`i32`).
 #[derive(Debug, Clone)]
 pub struct BlockId {
     file_name: String,
-    block_number: u32,
+    block_number: i32,
 }
 
 impl BlockId {
@@ -17,7 +17,7 @@ impl BlockId {
     ///
     /// * `file_name` - The name of the file.
     /// * `block_number` - The block number within the file.
-    pub fn new(file_name: String, block_number: u32) -> Self {
+    pub fn new(file_name: String, block_number: i32) -> Self {
         Self {
             file_name,
             block_number,
@@ -30,7 +30,7 @@ impl BlockId {
     }
 
     /// Returns the block number associated with this `BlockId`.
-    pub fn get_block_number(&self) -> u32 {
+    pub fn get_block_number(&self) -> i32 {
         self.block_number
     }
 
@@ -72,7 +72,7 @@ impl Eq for BlockId {}
 
 /// Implementing the `Hash` trait for `BlockId`.
 ///
-/// This allows us to calculate a hash code for a `BlockId` instance.
+/// This calculates a hash code for a `BlockId` instance.
 impl Hash for BlockId {
     /// Overrides the `hash` method from the `Hash` trait.
     ///
@@ -82,5 +82,19 @@ impl Hash for BlockId {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.file_name.hash(state);
         self.block_number.hash(state);
+    }
+}
+
+/// Implementing the `Display` trait for `BlockId`.
+///
+/// Allows a `BlockId` instance to be converted to a string representation.
+impl std::fmt::Display for BlockId {
+    /// Formats the `BlockId` for display.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - A mutable reference to a `Formatter` object.
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "[file {}, block {}]", self.file_name, self.block_number)
     }
 }

@@ -57,16 +57,16 @@ impl BufferManager {
     ///
     /// # Arguments
     ///
-    /// * `txnum`: The transaction number.
+    /// * `transaction_number`: The transaction number.
     ///
     /// # Errors
     ///
     /// Returns an error if the mutex lock is poisoned or if flushing fails.
-    pub fn flush_all(&self, txnum: i32) -> Result<(), BufferError> {
-        for buffer_arc in &self.buffer_pool {
-            let mut buffer_guard = buffer_arc.lock().map_err(|_| BufferError::MutexLockError)?;
-            if buffer_guard.modifying_transaction() == txnum {
-                buffer_guard.flush()?;
+    pub fn flush_all(&self, transaction_number: i32) -> Result<(), BufferError> {
+        for buffer in &self.buffer_pool {
+            let mut locked_buffer = buffer.lock().map_err(|_| BufferError::MutexLockError)?;
+            if locked_buffer.modifying_transaction() == transaction_number {
+                locked_buffer.flush()?;
             }
         }
         Ok(())
@@ -76,19 +76,19 @@ impl BufferManager {
     ///
     /// # Arguments
     ///
-    /// * `buffer_arc`: An `Arc<Mutex<Buffer>>` that provides access to a buffer.
+    /// * `buffer`: An `Arc<Mutex<Buffer>>` that provides access to a buffer.
     ///
     /// # Errors
     ///
     /// Returns an error if the mutex lock is poisoned.
-    pub fn unpin(&self, buffer_arc: Arc<Mutex<Buffer>>) -> Result<(), BufferError> {
-        let mut buffer_guard = buffer_arc.lock().map_err(|_| BufferError::MutexLockError)?;
-        buffer_guard.unpin();
+    pub fn unpin(&self, buffer: Arc<Mutex<Buffer>>) -> Result<(), BufferError> {
+        let mut locked_buffer = buffer.lock().map_err(|_| BufferError::MutexLockError)?;
+        locked_buffer.unpin();
         let mut number_available = self
             .number_available
             .lock()
             .map_err(|_| BufferError::MutexLockError)?;
-        if !buffer_guard.is_pinned() {
+        if !locked_buffer.is_pinned() {
             *number_available += 1;
             self.condvar.notify_all();
         }
@@ -108,8 +108,8 @@ impl BufferManager {
         let start_time = Instant::now();
         let timeout = Duration::from_millis(self.max_time);
         loop {
-            if let Some(buffer_arc) = self.try_to_pin(&block)? {
-                return Ok(buffer_arc);
+            if let Some(buffer) = self.try_to_pin(&block)? {
+                return Ok(buffer);
             }
             if self.waiting_too_long(start_time) {
                 return Err(BufferError::from(BufferAbortException));
@@ -137,29 +137,29 @@ impl BufferManager {
     ///
     /// Returns an error if the mutex lock is poisoned.
     fn try_to_pin(&self, block: &BlockId) -> Result<Option<Arc<Mutex<Buffer>>>, BufferError> {
-        if let Some(buffer_arc) = self.find_existing_buffer(block)? {
-            let mut buffer_guard = buffer_arc.lock().map_err(|_| BufferError::MutexLockError)?;
-            if !buffer_guard.is_pinned() {
+        if let Some(buffer) = self.find_existing_buffer(block)? {
+            let mut locked_buffer = buffer.lock().map_err(|_| BufferError::MutexLockError)?;
+            if !locked_buffer.is_pinned() {
                 let mut number_available = self
                     .number_available
                     .lock()
                     .map_err(|_| BufferError::MutexLockError)?;
                 *number_available -= 1;
             }
-            buffer_guard.pin();
-            return Ok(Some(buffer_arc.clone()));
+            locked_buffer.pin();
+            return Ok(Some(buffer.clone()));
         }
 
-        if let Some(buffer_arc) = self.choose_unpinned_buffer()?.clone() {
-            let mut buffer_guard = buffer_arc.lock().map_err(|_| BufferError::MutexLockError)?;
+        if let Some(buffer) = self.choose_unpinned_buffer()?.clone() {
+            let mut locked_buffer = buffer.lock().map_err(|_| BufferError::MutexLockError)?;
             let mut number_available = self
                 .number_available
                 .lock()
                 .map_err(|_| BufferError::MutexLockError)?;
-            buffer_guard.assign_to_block(block.clone())?;
+            locked_buffer.assign_to_block(block.clone())?;
             *number_available -= 1;
-            buffer_guard.pin();
-            return Ok(Some(buffer_arc.clone()));
+            locked_buffer.pin();
+            return Ok(Some(buffer.clone()));
         }
 
         Ok(None)
@@ -178,10 +178,10 @@ impl BufferManager {
         &self,
         block: &BlockId,
     ) -> Result<Option<Arc<Mutex<Buffer>>>, BufferError> {
-        for buffer_arc in &self.buffer_pool {
-            let buffer_guard = buffer_arc.lock().map_err(|_| BufferError::MutexLockError)?;
-            if buffer_guard.get_block().as_ref() == Some(&block) {
-                return Ok(Some(buffer_arc.clone()));
+        for buffer in &self.buffer_pool {
+            let locked_buffer = buffer.lock().map_err(|_| BufferError::MutexLockError)?;
+            if locked_buffer.get_block().as_ref() == Some(&block) {
+                return Ok(Some(buffer.clone()));
             }
         }
         Ok(None)
@@ -193,10 +193,10 @@ impl BufferManager {
     ///
     /// Returns an error if the mutex lock is poisoned.
     fn choose_unpinned_buffer(&self) -> Result<Option<Arc<Mutex<Buffer>>>, BufferError> {
-        for buffer_arc in &self.buffer_pool {
-            let buffer_guard = buffer_arc.lock().map_err(|_| BufferError::MutexLockError)?;
-            if !buffer_guard.is_pinned() {
-                return Ok(Some(buffer_arc.clone()));
+        for buffer in &self.buffer_pool {
+            let locked_buffer = buffer.lock().map_err(|_| BufferError::MutexLockError)?;
+            if !locked_buffer.is_pinned() {
+                return Ok(Some(buffer.clone()));
             }
         }
         Ok(None)

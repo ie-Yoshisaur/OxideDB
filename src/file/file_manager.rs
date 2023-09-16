@@ -69,7 +69,7 @@ impl FileManager {
     /// Returns an error if the read operation fails.
     pub fn read(&self, block: &BlockId, page: &mut Page) -> Result<(), FileManagerError> {
         let mut file = self.get_file(&block.get_file_name())?;
-        let file_offset = (block.get_block_number() * self.get_block_size() as u32) as u64;
+        let file_offset = (block.get_block_number() * self.get_block_size() as i32) as u64;
 
         file.seek(SeekFrom::Start(file_offset))
             .map_err(FileManagerError::Io)?;
@@ -92,7 +92,7 @@ impl FileManager {
     /// Returns an error if the write operation fails.
     pub fn write(&self, block: &BlockId, page: &mut Page) -> Result<(), FileManagerError> {
         let mut file = self.get_file(&block.get_file_name())?;
-        let file_offset = (block.get_block_number() * self.get_block_size() as u32) as u64;
+        let file_offset = (block.get_block_number() * self.get_block_size() as i32) as u64;
 
         file.seek(SeekFrom::Start(file_offset))
             .map_err(FileManagerError::Io)?;
@@ -117,11 +117,11 @@ impl FileManager {
     /// Returns an error if the append operation fails.
     pub fn append(&self, filename: &str) -> Result<BlockId, FileManagerError> {
         let new_block_num = self.length(filename)?;
-        let block = BlockId::new(filename.to_string(), new_block_num);
+        let block = BlockId::new(filename.to_string(), new_block_num as i32);
         let mut file = self.get_file(filename)?;
         let empty_block = vec![0; self.get_block_size()];
         file.seek(SeekFrom::Start(
-            (block.get_block_number() * self.get_block_size() as u32) as u64,
+            (block.get_block_number() * self.get_block_size() as i32) as u64,
         ))?;
         file.write_all(&empty_block)?;
         Ok(block)
@@ -136,10 +136,10 @@ impl FileManager {
     /// # Errors
     ///
     /// Returns an error if the file cannot be accessed.
-    pub fn length(&self, filename: &str) -> Result<u32, FileManagerError> {
+    pub fn length(&self, filename: &str) -> Result<usize, FileManagerError> {
         let file = self.get_file(filename)?;
-        let len = file.metadata()?.len() as u32;
-        Ok(len / self.get_block_size() as u32)
+        let len = file.metadata()?.len() as usize;
+        Ok(len / self.get_block_size())
     }
 
     /// Checks if the database directory was newly created during the initialization of the FileManager.

@@ -187,3 +187,4 @@ fn create_log_record(s: String, n: i32) -> Result<Vec<u8>, Box<dyn Error>> {
 
     Ok(bytes)
 }
+
