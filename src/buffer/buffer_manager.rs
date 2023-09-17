@@ -61,10 +61,10 @@ impl BufferManager {
     ///
     /// # Errors
     ///
-    /// Returns an error if the mutex lock is poisoned or if flushing fails.
+    /// Returns an error if flushing fails.
     pub fn flush_all(&self, transaction_number: i32) -> Result<(), BufferError> {
         for buffer in &self.buffer_pool {
-            let mut locked_buffer = buffer.lock().map_err(|_| BufferError::MutexLockError)?;
+            let mut locked_buffer = buffer.lock().unwrap();
             if locked_buffer.modifying_transaction() == transaction_number {
                 locked_buffer.flush()?;
             }
@@ -77,22 +77,14 @@ impl BufferManager {
     /// # Arguments
     ///
     /// * `buffer`: An `Arc<Mutex<Buffer>>` that provides access to a buffer.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the mutex lock is poisoned.
-    pub fn unpin(&self, buffer: Arc<Mutex<Buffer>>) -> Result<(), BufferError> {
-        let mut locked_buffer = buffer.lock().map_err(|_| BufferError::MutexLockError)?;
+    pub fn unpin(&self, buffer: Arc<Mutex<Buffer>>) -> () {
+        let mut locked_buffer = buffer.lock().unwrap();
         locked_buffer.unpin();
-        let mut number_available = self
-            .number_available
-            .lock()
-            .map_err(|_| BufferError::MutexLockError)?;
+        let mut number_available = self.number_available.lock().unwrap();
         if !locked_buffer.is_pinned() {
             *number_available += 1;
             self.condvar.notify_all();
         }
-        Ok(())
     }
 
     /// Pins a buffer to a disk block and locks it for a transaction.
@@ -103,12 +95,12 @@ impl BufferManager {
     ///
     /// # Errors
     ///
-    /// Returns an error if no buffer is available or if the mutex lock is poisoned.
+    /// Returns an error if no buffer is available.
     pub fn pin(&self, block: BlockId) -> Result<Arc<Mutex<Buffer>>, BufferError> {
         let start_time = Instant::now();
         let timeout = Duration::from_millis(self.max_time);
         loop {
-            if let Some(buffer) = self.try_to_pin(&block)? {
+            if let Some(buffer) = self.try_to_pin(&block) {
                 return Ok(buffer);
             }
             if self.waiting_too_long(start_time) {
@@ -119,7 +111,7 @@ impl BufferManager {
             let (_lock, timeout_result) = self
                 .condvar
                 .wait_timeout(number_available.lock().unwrap(), timeout)
-                .map_err(|_| BufferError::MutexLockError)?;
+                .unwrap();
 
             if timeout_result.timed_out() {
                 return Err(BufferError::from(BufferAbortException));
@@ -132,37 +124,27 @@ impl BufferManager {
     /// # Arguments
     ///
     /// * `block`: The disk block to be pinned.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the mutex lock is poisoned.
-    fn try_to_pin(&self, block: &BlockId) -> Result<Option<Arc<Mutex<Buffer>>>, BufferError> {
-        if let Some(buffer) = self.find_existing_buffer(block)? {
-            let mut locked_buffer = buffer.lock().map_err(|_| BufferError::MutexLockError)?;
+    fn try_to_pin(&self, block: &BlockId) -> Option<Arc<Mutex<Buffer>>> {
+        if let Some(buffer) = self.find_existing_buffer(block) {
+            let mut locked_buffer = buffer.lock().unwrap();
             if !locked_buffer.is_pinned() {
-                let mut number_available = self
-                    .number_available
-                    .lock()
-                    .map_err(|_| BufferError::MutexLockError)?;
+                let mut number_available = self.number_available.lock().unwrap();
                 *number_available -= 1;
             }
             locked_buffer.pin();
-            return Ok(Some(buffer.clone()));
+            return Some(buffer.clone());
         }
 
-        if let Some(buffer) = self.choose_unpinned_buffer()?.clone() {
-            let mut locked_buffer = buffer.lock().map_err(|_| BufferError::MutexLockError)?;
-            let mut number_available = self
-                .number_available
-                .lock()
-                .map_err(|_| BufferError::MutexLockError)?;
-            locked_buffer.assign_to_block(block.clone())?;
+        if let Some(buffer) = self.choose_unpinned_buffer().clone() {
+            let mut locked_buffer = buffer.lock().unwrap();
+            let mut number_available = self.number_available.lock().unwrap();
+            locked_buffer.assign_to_block(block.clone());
             *number_available -= 1;
             locked_buffer.pin();
-            return Ok(Some(buffer.clone()));
+            return Some(buffer.clone());
         }
 
-        Ok(None)
+        None
     }
 
     /// Finds an existing buffer for the provided block, if available.
@@ -170,36 +152,25 @@ impl BufferManager {
     /// # Arguments
     ///
     /// * `block`: The disk block to search for.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the mutex lock is poisoned.
-    fn find_existing_buffer(
-        &self,
-        block: &BlockId,
-    ) -> Result<Option<Arc<Mutex<Buffer>>>, BufferError> {
+    fn find_existing_buffer(&self, block: &BlockId) -> Option<Arc<Mutex<Buffer>>> {
         for buffer in &self.buffer_pool {
-            let locked_buffer = buffer.lock().map_err(|_| BufferError::MutexLockError)?;
+            let locked_buffer = buffer.lock().unwrap();
             if locked_buffer.get_block().as_ref() == Some(&block) {
-                return Ok(Some(buffer.clone()));
+                return Some(buffer.clone());
             }
         }
-        Ok(None)
+        None
     }
 
     /// Chooses an unpinned buffer, if available.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the mutex lock is poisoned.
-    fn choose_unpinned_buffer(&self) -> Result<Option<Arc<Mutex<Buffer>>>, BufferError> {
+    fn choose_unpinned_buffer(&self) -> Option<Arc<Mutex<Buffer>>> {
         for buffer in &self.buffer_pool {
-            let locked_buffer = buffer.lock().map_err(|_| BufferError::MutexLockError)?;
+            let locked_buffer = buffer.lock().unwrap();
             if !locked_buffer.is_pinned() {
-                return Ok(Some(buffer.clone()));
+                return Some(buffer.clone());
             }
         }
-        Ok(None)
+        None
     }
 
     /// Checks if the system has been waiting too long to pin a buffer.

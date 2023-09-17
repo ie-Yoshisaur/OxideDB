@@ -40,11 +40,7 @@ fn buffer_manager_test() {
     buffer_manager
         .lock()
         .unwrap()
-        .unpin(buffers[1].take().unwrap())
-        .expect(&format!(
-            "Error unpinning block.\nBacktrace: {:#?}",
-            Backtrace::capture()
-        ));
+        .unpin(buffers[1].take().unwrap());
 
     // Pin block 0 again and repin block 1
     for i in 0..2 {
@@ -83,11 +79,7 @@ fn buffer_manager_test() {
     buffer_manager
         .lock()
         .unwrap()
-        .unpin(buffers[2].take().unwrap())
-        .expect(&format!(
-            "Error unpinning block.\nBacktrace: {:#?}",
-            Backtrace::capture()
-        ));
+        .unpin(buffers[2].take().unwrap());
 
     // Now pin block 3 (should succeed)
     buffers[5] = Some(

@@ -7,7 +7,7 @@ test:
 		total_count=$$((total_count + 1)); \
 		echo ""; \
 		echo "  Running test $$test_name..."; \
-		if cargo test $$test_name -- --nocapture; then \
+    if RUSTFLAGS="-Awarnings" cargo test $$test_name -- --nocapture; then \
 			echo "  Test $$test_name succeeded."; \
 			success_count=$$((success_count + 1)); \
 			successful_tests="$$successful_tests\n  $$test_name"; \

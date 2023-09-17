@@ -63,10 +63,7 @@ fn buffer_file_test() -> Result<(), Box<dyn std::error::Error>> {
 
     // Unpin the block to make it available for other operations.
     drop(locked_buffer1);
-    buffer_manager.unpin(buffer1).expect(&format!(
-        "Failed to unpin buffer1.\nBacktrace: {:#?}",
-        Backtrace::capture()
-    ));
+    buffer_manager.unpin(buffer1);
 
     // Pin the same block again for reading the written data.
     let buffer2 = buffer_manager.pin(block_id.clone()).expect(&format!(
@@ -112,10 +109,7 @@ fn buffer_file_test() -> Result<(), Box<dyn std::error::Error>> {
 
     // Unpin the block after reading.
     drop(locked_buffer2);
-    buffer_manager.unpin(buffer2).expect(&format!(
-        "Failed to unpin buffer2.\nBacktrace: {:#?}",
-        Backtrace::capture()
-    ));
+    buffer_manager.unpin(buffer2);
 
     // Remove test directory and cleanup.
     remove_dir_all(test_directory).expect(&format!(

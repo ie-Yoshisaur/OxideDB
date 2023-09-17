@@ -23,8 +23,8 @@ impl OxideDB {
         ));
 
         let block_size = {
-            let fm = file_manager.lock().unwrap();
-            fm.get_block_size()
+            let file_manager = file_manager.lock().unwrap();
+            file_manager.get_block_size()
         };
 
         let log_manager = Arc::new(Mutex::new(

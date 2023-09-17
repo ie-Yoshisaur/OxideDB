@@ -49,10 +49,7 @@ fn buffer_test() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Unpin the modified block
-    buffer_manager.unpin(buffer1).expect(&format!(
-        "Error Unpinning Block 1\nBacktrace: {:?}",
-        Backtrace::capture()
-    ));
+    buffer_manager.unpin(buffer1);
 
     // Pin additional blocks. One of these will trigger a flush for buffer1.
     let block2 = BlockId::new("testfile".to_string(), 2);
@@ -72,10 +69,7 @@ fn buffer_test() -> Result<(), Box<dyn std::error::Error>> {
     ));
 
     // Unpin buffer 2 and pin buffer 1 again
-    buffer_manager.unpin(buffer2).expect(&format!(
-        "Error Unpinning Block 2\nBacktrace: {:?}",
-        Backtrace::capture()
-    ));
+    buffer_manager.unpin(buffer2);
     buffer2 = buffer_manager.pin(block1).expect(&format!(
         "Error Pinning Block 1\nBacktrace: {:?}",
         Backtrace::capture()

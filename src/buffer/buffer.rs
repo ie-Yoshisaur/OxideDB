@@ -33,10 +33,7 @@ impl Buffer {
         file_manager: Arc<Mutex<FileManager>>,
         log_manager: Arc<Mutex<LogManager>>,
     ) -> Result<Self, BufferError> {
-        let block_size = file_manager
-            .lock()
-            .map_err(|_| BufferError::MutexLockError)?
-            .get_block_size();
+        let block_size = file_manager.lock().unwrap().get_block_size();
         let mut contents = Page::new_from_blocksize(block_size);
         Ok(Buffer {
             file_manager,
@@ -84,7 +81,7 @@ impl Buffer {
         self.block = Some(block.clone());
         self.file_manager
             .lock()
-            .map_err(|_| BufferError::MutexLockError)?
+            .unwrap()
             .read(&block, &mut self.contents)
             .map_err(BufferError::from)?;
 
@@ -96,19 +93,13 @@ impl Buffer {
     pub fn flush(&mut self) -> Result<(), BufferError> {
         if self.transaction_number >= 0 {
             {
-                let mut log_manager = self
-                    .log_manager
-                    .lock()
-                    .map_err(|_| BufferError::MutexLockError)?;
+                let mut log_manager = self.log_manager.lock().unwrap();
                 log_manager
                     .flush_by_lsn(self.lsn)
                     .map_err(BufferError::from)?;
             }
             if let Some(ref block) = self.block {
-                let file_manager = self
-                    .file_manager
-                    .lock()
-                    .map_err(|_| BufferError::MutexLockError)?;
+                let file_manager = self.file_manager.lock().unwrap();
                 file_manager
                     .write(block, &mut self.contents)
                     .map_err(BufferError::from)?;
@@ -128,4 +119,3 @@ impl Buffer {
         self.pins -= 1;
     }
 }
-
