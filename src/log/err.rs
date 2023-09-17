@@ -1,46 +1,58 @@
+use crate::file::err::FileError;
+use crate::file::err::PageError;
 use std::fmt;
+use std::io;
 
-/// Represents errors that can occur within the logging system.
+/// Represents errors that can occur within the `LogManager`.
 ///
-/// This enum contains variants for file manager errors, block-related errors,
-/// page-related errors, IO errors, and mutex lock errors.
+/// This enum contains variants for FileManager errors, Page errors, standard IO errors,
+/// and mutex lock errors.
 #[derive(Debug)]
 pub enum LogError {
-    /// Errors specific to file manager operations.
-    FileManagerError(String),
+    /// An error related to the File operations.
+    FileError(FileError),
 
-    /// Errors specific to block operations.
-    BlockError(String),
-
-    /// Errors specific to page operations.
-    PageError(String),
+    /// An error related to the Page operations.
+    PageError(PageError),
 
     /// Wrapper around standard IO errors.
-    IOError(String),
-
-    /// An error indicating that locking a mutex failed.
-    MutexLockError,
+    IoError(io::Error),
 }
 
 impl fmt::Display for LogError {
-    /// Formats the `LogError` variants as a human-readable string.
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            LogError::FileManagerError(msg) => write!(f, "FileManagerError: {}", msg),
-            LogError::BlockError(msg) => write!(f, "BlockError: {}", msg),
-            LogError::PageError(msg) => write!(f, "PageError: {}", msg),
-            LogError::IOError(msg) => write!(f, "IOError: {}", msg),
-            LogError::MutexLockError => write!(f, "MutexLockError: Failed to acquire lock"),
+            LogError::FileError(err) => write!(f, "FileManager error: {}", err),
+            LogError::PageError(err) => write!(f, "Page error: {}", err),
+            LogError::IoError(err) => write!(f, "IO error: {}", err),
         }
     }
 }
 
 impl std::error::Error for LogError {
-    /// Provides a source error, if any, for the `LogError` variants.
-    ///
-    /// Currently, this function returns `None` as the `LogError` variants
-    /// do not wrap other errors.
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        None
+        match self {
+            LogError::FileError(err) => Some(err),
+            LogError::PageError(err) => Some(err),
+            LogError::IoError(err) => Some(err),
+        }
+    }
+}
+
+impl From<FileError> for LogError {
+    fn from(error: FileError) -> Self {
+        LogError::FileError(error)
+    }
+}
+
+impl From<PageError> for LogError {
+    fn from(error: PageError) -> Self {
+        LogError::PageError(error)
+    }
+}
+
+impl From<io::Error> for LogError {
+    fn from(error: io::Error) -> Self {
+        LogError::IoError(error)
     }
 }

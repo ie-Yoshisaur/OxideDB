@@ -22,25 +22,26 @@ impl LogManager {
     /// Creates a new `LogManager`.
     pub fn new(file_manager: Arc<Mutex<FileManager>>, log_file: String) -> Result<Self, LogError> {
         let mut log_page = {
-            let fm = file_manager.lock().unwrap();
-            Page::new_from_blocksize(fm.get_block_size())
+            let locked_file_manager = file_manager.lock().unwrap();
+            Page::new_from_blocksize(locked_file_manager.get_block_size())
         };
 
         let logsize = {
-            let fm = file_manager.lock().unwrap();
-            fm.length(&log_file)
-                .map_err(|e| LogError::FileManagerError(e.to_string()))?
+            let locked_file_manager = file_manager.lock().unwrap();
+            locked_file_manager
+                .length(&log_file)
+                .map_err(|e| LogError::FileError(e))?
         };
 
         let current_block = if logsize == 0 {
-            let fm = file_manager.lock().unwrap();
-            Self::append_new_block(&fm, &log_file, &mut log_page)
-                .map_err(|e| LogError::FileManagerError(e.to_string()))?
+            let locked_file_manager = file_manager.lock().unwrap();
+            Self::append_new_block(&locked_file_manager, &log_file, &mut log_page)?
         } else {
-            let fm = file_manager.lock().unwrap();
-            let block = BlockId::new(log_file.clone(), logsize - 1);
-            fm.read(&block, &mut log_page)
-                .map_err(|e| LogError::FileManagerError(e.to_string()))?;
+            let locked_file_manager = file_manager.lock().unwrap();
+            let block = BlockId::new(log_file.clone(), logsize as i32 - 1);
+            locked_file_manager
+                .read(&block, &mut log_page)
+                .map_err(|e| LogError::FileError(e))?;
             block
         };
 
@@ -56,10 +57,7 @@ impl LogManager {
 
     /// Flushes log records up to a given LSN.
     pub fn flush_by_lsn(&mut self, lsn: i32) -> Result<(), LogError> {
-        let last_saved_lsn = *self
-            .last_saved_lsn
-            .lock()
-            .map_err(|_| LogError::MutexLockError)?;
+        let last_saved_lsn = *self.last_saved_lsn.lock().unwrap();
         if lsn >= last_saved_lsn {
             self.flush()?;
         }
@@ -80,7 +78,7 @@ impl LogManager {
         let mut boundary = self
             .log_page
             .get_int(0)
-            .map_err(|e| LogError::PageError(e.to_string()))? as usize;
+            .map_err(|e| LogError::PageError(e))? as usize;
         let record_size = log_record.len();
         let bytes_needed = record_size + std::mem::size_of::<i32>();
 
@@ -94,20 +92,17 @@ impl LogManager {
             boundary = self
                 .log_page
                 .get_int(0)
-                .map_err(|e| LogError::PageError(e.to_string()))? as usize;
+                .map_err(|e| LogError::PageError(e))? as usize;
         }
 
         let record_position = boundary - bytes_needed;
         self.log_page
             .set_bytes(record_position, log_record)
-            .map_err(|e| LogError::PageError(e.to_string()))?;
+            .map_err(|e| LogError::PageError(e))?;
         self.log_page
             .set_int(0, record_position as i32)
-            .map_err(|e| LogError::PageError(e.to_string()))?;
-        let mut latest_lsn = self
-            .latest_lsn
-            .lock()
-            .map_err(|_| LogError::MutexLockError)?;
+            .map_err(|e| LogError::PageError(e))?;
+        let mut latest_lsn = self.latest_lsn.lock().unwrap();
         *latest_lsn += 1;
         Ok(*latest_lsn)
     }
@@ -120,13 +115,13 @@ impl LogManager {
     ) -> Result<BlockId, LogError> {
         let block = file_manager
             .append(log_file)
-            .map_err(|e| LogError::FileManagerError(e.to_string()))?;
+            .map_err(|e| LogError::FileError(e))?;
         log_page
             .set_int(0, file_manager.get_block_size() as i32)
-            .map_err(|e| LogError::PageError(e.to_string()))?;
+            .map_err(|e| LogError::PageError(e))?;
         file_manager
             .write(&block, log_page)
-            .map_err(|e| LogError::FileManagerError(e.to_string()))?;
+            .map_err(|e| LogError::FileError(e))?;
         Ok(block)
     }
 
@@ -136,15 +131,9 @@ impl LogManager {
             .lock()
             .unwrap()
             .write(&self.current_block, &mut self.log_page)
-            .map_err(|e| LogError::FileManagerError(e.to_string()))?;
-        let mut last_saved_lsn = self
-            .last_saved_lsn
-            .lock()
-            .map_err(|_| LogError::MutexLockError)?;
-        let latest_lsn = *self
-            .latest_lsn
-            .lock()
-            .map_err(|_| LogError::MutexLockError)?;
+            .map_err(|e| LogError::FileError(e))?;
+        let mut last_saved_lsn = self.last_saved_lsn.lock().unwrap();
+        let latest_lsn = *self.latest_lsn.lock().unwrap();
         *last_saved_lsn = latest_lsn;
         Ok(())
     }

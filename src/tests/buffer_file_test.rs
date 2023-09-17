@@ -27,16 +27,16 @@ fn buffer_file_test() -> Result<(), Box<dyn std::error::Error>> {
     let block_id = BlockId::new("testfile".to_string(), 2);
 
     // Pin the block for writing data.
-    let buffer1_arc = buffer_manager.pin(block_id.clone()).expect(&format!(
+    let buffer1 = buffer_manager.pin(block_id.clone()).expect(&format!(
         "Failed to pin block.\nBacktrace: {:#?}",
         Backtrace::capture()
     ));
 
-    let mut buffer1_guard = buffer1_arc.lock().expect(&format!(
+    let mut locked_buffer1 = buffer1.lock().expect(&format!(
         "Failed to lock buffer1.\nBacktrace: {:#?}",
         Backtrace::capture()
     ));
-    let page1 = buffer1_guard.get_contents();
+    let page1 = locked_buffer1.get_contents();
 
     // Define where to write the data within the block.
     let position1: usize = 88;
@@ -59,27 +59,24 @@ fn buffer_file_test() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(|_| format!("Failed to set int.\nBacktrace: {:#?}", Backtrace::capture()))?;
 
     // Mark the block as modified.
-    buffer1_guard.set_modified(1, 0);
+    locked_buffer1.set_modified(1, 0);
 
     // Unpin the block to make it available for other operations.
-    drop(buffer1_guard);
-    buffer_manager.unpin(buffer1_arc).expect(&format!(
-        "Failed to unpin buffer1.\nBacktrace: {:#?}",
-        Backtrace::capture()
-    ));
+    drop(locked_buffer1);
+    buffer_manager.unpin(buffer1);
 
     // Pin the same block again for reading the written data.
-    let buffer2_arc = buffer_manager.pin(block_id.clone()).expect(&format!(
+    let buffer2 = buffer_manager.pin(block_id.clone()).expect(&format!(
         "Failed to pin block again.\nBacktrace: {:#?}",
         Backtrace::capture()
     ));
 
-    let mut buffer2_guard = buffer2_arc.lock().expect(&format!(
+    let mut locked_buffer2 = buffer2.lock().expect(&format!(
         "Failed to lock buffer2.\nBacktrace: {:#?}",
         Backtrace::capture()
     ));
 
-    let page2 = buffer2_guard.get_contents();
+    let page2 = locked_buffer2.get_contents();
 
     // Read and verify the string and integer written to the block.
     let read_int = page2
@@ -111,11 +108,8 @@ fn buffer_file_test() -> Result<(), Box<dyn std::error::Error>> {
     println!("offset {} contains {}", position1, read_str);
 
     // Unpin the block after reading.
-    drop(buffer2_guard);
-    buffer_manager.unpin(buffer2_arc).expect(&format!(
-        "Failed to unpin buffer2.\nBacktrace: {:#?}",
-        Backtrace::capture()
-    ));
+    drop(locked_buffer2);
+    buffer_manager.unpin(buffer2);
 
     // Remove test directory and cleanup.
     remove_dir_all(test_directory).expect(&format!(

@@ -32,8 +32,8 @@ fn buffer_test() -> Result<(), Box<dyn std::error::Error>> {
         Backtrace::capture()
     ));
     let number1 = {
-        let mut buffer1_guard = buffer1.lock().unwrap(); // handle the lock
-        let page1 = buffer1_guard.get_contents();
+        let mut locked_buffer1 = buffer1.lock().unwrap(); // handle the lock
+        let page1 = locked_buffer1.get_contents();
         let mut number1 = page1.get_int(80).expect(&format!(
             "Error Reading int at Offset 80 in Block 1\nBacktrace: {:?}",
             Backtrace::capture()
@@ -43,16 +43,13 @@ fn buffer_test() -> Result<(), Box<dyn std::error::Error>> {
             "Error Writing int at Offset 80 in Block 1\nBacktrace: {:?}",
             Backtrace::capture()
         ));
-        buffer1_guard.set_modified(1, 0); // Placeholder values
+        locked_buffer1.set_modified(1, 0); // Placeholder values
         println!("The new value is {}", number1 + 1);
         number1
     };
 
     // Unpin the modified block
-    buffer_manager.unpin(buffer1).expect(&format!(
-        "Error Unpinning Block 1\nBacktrace: {:?}",
-        Backtrace::capture()
-    ));
+    buffer_manager.unpin(buffer1);
 
     // Pin additional blocks. One of these will trigger a flush for buffer1.
     let block2 = BlockId::new("testfile".to_string(), 2);
@@ -72,17 +69,14 @@ fn buffer_test() -> Result<(), Box<dyn std::error::Error>> {
     ));
 
     // Unpin buffer 2 and pin buffer 1 again
-    buffer_manager.unpin(buffer2).expect(&format!(
-        "Error Unpinning Block 2\nBacktrace: {:?}",
-        Backtrace::capture()
-    ));
+    buffer_manager.unpin(buffer2);
     buffer2 = buffer_manager.pin(block1).expect(&format!(
         "Error Pinning Block 1\nBacktrace: {:?}",
         Backtrace::capture()
     ));
     {
-        let mut buffer2_guard = buffer2.lock().unwrap();
-        let page2 = buffer2_guard.get_contents();
+        let mut locked_buffer2 = buffer2.lock().unwrap();
+        let page2 = locked_buffer2.get_contents();
         let old_value = page2.get_int(80).expect(&format!(
             "Error Reading int at Offset 80 in Block 1\nBacktrace: {:?}",
             Backtrace::capture()
@@ -103,7 +97,7 @@ fn buffer_test() -> Result<(), Box<dyn std::error::Error>> {
             .map_err(|_| "Failed to get integer at offset 80")?;
         // Assert that the value read is the same as the new value
         assert_eq!(new_value, 9999, "Read value does not match the new value");
-        buffer2_guard.set_modified(1, 0); // won't get written to disk
+        locked_buffer2.set_modified(1, 0); // won't get written to disk
 
         // Read the block directly from disk to confirm that the original modification was flushed
         let file_manager = db

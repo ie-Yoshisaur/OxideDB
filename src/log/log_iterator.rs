@@ -72,15 +72,12 @@ impl LogIterator {
         // Acquire the lock and read the block, converting errors to LogError
         self.file_manager
             .lock()
-            .map_err(|_| LogError::MutexLockError)?
+            .unwrap()
             .read(&block, &mut self.page)
-            .map_err(|e| LogError::FileManagerError(e.to_string()))?;
+            .map_err(|e| LogError::FileError(e))?;
 
         // Get the boundary, converting errors to LogError
-        self.boundary = self
-            .page
-            .get_int(0)
-            .map_err(|e| LogError::PageError(e.to_string()))? as usize;
+        self.boundary = self.page.get_int(0).map_err(|e| LogError::PageError(e))? as usize;
 
         self.current_position = self.boundary;
         Ok(())
@@ -116,7 +113,7 @@ impl Iterator for LogIterator {
                 self.current_position += std::mem::size_of::<i32>() + record.len();
                 Some(Ok(record))
             }
-            Err(e) => Some(Err(LogError::PageError(e.to_string()))),
+            Err(e) => Some(Err(LogError::PageError(e))),
         }
     }
 }

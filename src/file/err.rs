@@ -1,19 +1,17 @@
 use std::fmt;
 use std::io;
+use std::string;
 
 /// Represents errors that can occur within the `FileManager`.
 ///
 /// This enum contains variants for IO errors, page-related errors, and mutex lock errors.
 #[derive(Debug)]
-pub enum FileManagerError {
+pub enum FileError {
     /// Wrapper around standard IO errors.
     Io(io::Error),
 
     /// Errors specific to page operations.
     Page(PageError),
-
-    /// An error indicating that locking a mutex failed.
-    MutexLockError,
 }
 
 /// Represents errors that can occur during operations on a `Page`.
@@ -28,22 +26,20 @@ pub enum PageError {
     Utf8Error(std::string::FromUtf8Error),
 }
 
-impl fmt::Display for FileManagerError {
+impl fmt::Display for FileError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            FileManagerError::Io(err) => write!(f, "IO error: {}", err),
-            FileManagerError::Page(err) => write!(f, "Page error: {:?}", err),
-            FileManagerError::MutexLockError => write!(f, "Mutex lock error"),
+            FileError::Io(err) => write!(f, "IO error: {}", err),
+            FileError::Page(err) => write!(f, "Page error: {:?}", err),
         }
     }
 }
 
-impl std::error::Error for FileManagerError {
+impl std::error::Error for FileError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            FileManagerError::Io(err) => Some(err),
-            FileManagerError::Page(err) => Some(err),
-            FileManagerError::MutexLockError => None,
+            FileError::Io(err) => Some(err),
+            FileError::Page(err) => Some(err),
         }
     }
 }
@@ -66,15 +62,15 @@ impl std::error::Error for PageError {
     }
 }
 
-impl From<io::Error> for FileManagerError {
+impl From<io::Error> for FileError {
     fn from(error: io::Error) -> Self {
-        FileManagerError::Io(error)
+        FileError::Io(error)
     }
 }
 
-impl From<PageError> for FileManagerError {
+impl From<PageError> for FileError {
     fn from(error: PageError) -> Self {
-        FileManagerError::Page(error)
+        FileError::Page(error)
     }
 }
 
@@ -84,7 +80,7 @@ impl From<io::Error> for PageError {
     }
 }
 
-impl From<std::string::FromUtf8Error> for PageError {
+impl From<string::FromUtf8Error> for PageError {
     fn from(error: std::string::FromUtf8Error) -> Self {
         PageError::Utf8Error(error)
     }
