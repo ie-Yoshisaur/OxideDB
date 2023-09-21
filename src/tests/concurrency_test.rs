@@ -38,7 +38,7 @@ use std::time::Duration;
 #[test]
 fn concurrency_test() {
     let test_directory = PathBuf::from("concurrencytest");
-    let db = OxideDB::new_for_debug(test_directory.clone(), 400, 8);
+    let db = OxideDB::new_from_parameters(test_directory.clone(), 400, 8);
     let file_manager = db.get_file_manager();
     let log_manager = db.get_log_manager();
     let buffer_manager = db.get_buffer_manager();
@@ -54,7 +54,12 @@ fn concurrency_test() {
 
             move || {
                 let mut transaction_a =
-                    Transaction::new(file_manager, log_manager, buffer_manager, lock_table);
+                    Transaction::new(file_manager, log_manager, buffer_manager, lock_table).expect(
+                        &format!(
+                            "Transaction A: Error creating transaction.\nBacktrace: {:#?}",
+                            Backtrace::capture()
+                        ),
+                    );
                 let block1 = BlockId::new("testfile".to_string().to_string(), 1);
                 let block2 = BlockId::new("testfile".to_string().to_string(), 2);
                 transaction_a.pin(block1.clone());
@@ -72,7 +77,10 @@ fn concurrency_test() {
                     Backtrace::capture()
                 ));
                 println!("Transaction A: receive slock 2");
-                transaction_a.commit();
+                transaction_a.commit().expect(&format!(
+                    "Transaction A: Commit failed.\nBacktrace: {:#?}",
+                    Backtrace::capture()
+                ));
                 println!("Transaction A: commit");
             }
         })
@@ -91,7 +99,12 @@ fn concurrency_test() {
 
             move || {
                 let mut transaction_b =
-                    Transaction::new(file_manager, log_manager, buffer_manager, lock_table);
+                    Transaction::new(file_manager, log_manager, buffer_manager, lock_table).expect(
+                        &format!(
+                            "Transaction B: Error creating transaction.\nBacktrace: {:#?}",
+                            Backtrace::capture()
+                        ),
+                    );
                 let block1 = BlockId::new("testfile".to_string(), 1);
                 let block2 = BlockId::new("testfile".to_string(), 2);
                 transaction_b.pin(block1.clone());
@@ -111,7 +124,10 @@ fn concurrency_test() {
                     Backtrace::capture()
                 ));
                 println!("Transaction B: receive slock 1");
-                transaction_b.commit();
+                transaction_b.commit().expect(&format!(
+                    "Transaction B: Commit failed.\nBacktrace: {:#?}",
+                    Backtrace::capture()
+                ));
                 println!("Transaction B: commit");
             }
         })
@@ -129,7 +145,12 @@ fn concurrency_test() {
 
             move || {
                 let mut transaction_c =
-                    Transaction::new(file_manager, log_manager, buffer_manager, lock_table);
+                    Transaction::new(file_manager, log_manager, buffer_manager, lock_table).expect(
+                        &format!(
+                            "Transaction C: Error creating transaction.\nBacktrace: {:#?}",
+                            Backtrace::capture()
+                        ),
+                    );
                 let block1 = BlockId::new("testfile".to_string(), 1);
                 let block2 = BlockId::new("testfile".to_string(), 2);
                 transaction_c.pin(block1.clone());
@@ -150,7 +171,10 @@ fn concurrency_test() {
                     Backtrace::capture()
                 ));
                 println!("Transaction C: receive slock 2");
-                transaction_c.commit();
+                transaction_c.commit().expect(&format!(
+                    "Transaction C: Commit failed.\nBacktrace: {:#?}",
+                    Backtrace::capture()
+                ));
                 println!("Transaction C: commit");
             }
         })

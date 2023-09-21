@@ -4,6 +4,7 @@ use crate::log::err::LogError;
 use std::error::Error;
 use std::fmt;
 
+// `LogRecordError` enum represents errors that can occur related to a log record.
 #[derive(Debug)]
 pub enum LogRecordError {
     PageError(PageError),
@@ -28,6 +29,19 @@ impl Error for LogRecordError {
     }
 }
 
+impl From<PageError> for LogRecordError {
+    fn from(err: PageError) -> LogRecordError {
+        LogRecordError::PageError(err)
+    }
+}
+
+impl From<LogError> for LogRecordError {
+    fn from(err: LogError) -> LogRecordError {
+        LogRecordError::LogError(err)
+    }
+}
+
+// `RecoveryError` enum represents errors that can occur during recovery.
 #[derive(Debug)]
 pub enum RecoveryError {
     LogRecordError(LogRecordError),
@@ -58,18 +72,6 @@ impl Error for RecoveryError {
             RecoveryError::PageError(err) => Some(err),
             RecoveryError::BlockNotFoundError => None,
         }
-    }
-}
-
-impl From<PageError> for LogRecordError {
-    fn from(err: PageError) -> LogRecordError {
-        LogRecordError::PageError(err)
-    }
-}
-
-impl From<LogError> for LogRecordError {
-    fn from(err: LogError) -> LogRecordError {
-        LogRecordError::LogError(err)
     }
 }
 

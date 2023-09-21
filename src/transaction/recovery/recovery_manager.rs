@@ -30,17 +30,22 @@ impl RecoveryManager {
     /// * `transaction_number` - The ID of the specified transaction.
     /// * `log_manager` - The log manager.
     /// * `buffer_manager` - The buffer manager.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Self, RecoveryError>` - Result of the operation.
     pub fn new(
         transaction_number: i32,
         log_manager: Arc<Mutex<LogManager>>,
         buffer_manager: Arc<Mutex<BufferManager>>,
-    ) -> Self {
-        StartRecord::write_to_log(log_manager.clone(), transaction_number);
-        Self {
+    ) -> Result<Self, RecoveryError> {
+        StartRecord::write_to_log(log_manager.clone(), transaction_number)
+            .map_err(|e| RecoveryError::LogRecordError(e))?;
+        Ok(Self {
             transaction_number,
             log_manager,
             buffer_manager,
-        }
+        })
     }
 
     /// Writes a commit record to the log and flushes it to disk.
@@ -60,7 +65,7 @@ impl RecoveryManager {
             .lock()
             .unwrap()
             .flush_by_lsn(lsn)
-            .map_err(|e| RecoveryError::LogError(e));
+            .map_err(|e| RecoveryError::LogError(e))?;
         Ok(())
     }
 
@@ -74,7 +79,7 @@ impl RecoveryManager {
     ///
     /// * `Result<(), RecoveryError>` - Result of the operation.
     pub fn rollback(&self, transaction: &mut Transaction) -> Result<(), RecoveryError> {
-        self.do_rollback(transaction);
+        self.do_rollback(transaction)?;
         self.buffer_manager
             .lock()
             .unwrap()
@@ -100,7 +105,7 @@ impl RecoveryManager {
     ///
     /// * `Result<(), RecoveryError>` - Result of the operation.
     pub fn recover(&self, transaction: &mut Transaction) -> Result<(), RecoveryError> {
-        self.do_recover(transaction);
+        self.do_recover(transaction)?;
         self.buffer_manager
             .lock()
             .unwrap()

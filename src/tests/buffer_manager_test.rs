@@ -18,7 +18,7 @@ use std::path::PathBuf;
 fn buffer_manager_test() {
     // Initialize OxideDB with only 3 buffers
     let test_directory = PathBuf::from("buffermanagertest");
-    let db = OxideDB::new_for_debug(test_directory.clone(), 400, 3);
+    let db = OxideDB::new_from_parameters(test_directory.clone(), 400, 3);
     let buffer_manager = db.get_buffer_manager();
 
     let mut buffers = vec![None; 6]; // Array to hold 6 optional Buffer references
