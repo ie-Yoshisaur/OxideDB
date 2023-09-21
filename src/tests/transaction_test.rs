@@ -13,7 +13,7 @@ use std::path::PathBuf;
 fn transaction_test() {
     // Setup: Initialize the database and related managers
     let test_directory = PathBuf::from("transactiontest");
-    let db = OxideDB::new_for_debug(test_directory.clone(), 400, 8);
+    let db = OxideDB::new_from_parameters(test_directory.clone(), 400, 8);
     let file_manager = db.get_file_manager();
     let log_manager = db.get_log_manager();
     let buffer_manager = db.get_buffer_manager();
@@ -25,7 +25,11 @@ fn transaction_test() {
         log_manager.clone(),
         buffer_manager.clone(),
         lock_table.clone(),
-    );
+    )
+    .expect(&format!(
+        "Transaction 0: Error creating transaction.\nBacktrace: {:#?}",
+        Backtrace::capture()
+    ));
     let block = BlockId::new("testfile".to_string(), 1);
     transaction0.pin(block.clone());
     transaction0
@@ -42,7 +46,10 @@ fn transaction_test() {
         ));
 
     // Commit the changes made by Transaction 0
-    transaction0.commit();
+    transaction0.commit().expect(&format!(
+        "Transaction 0: Commit failed.\nBacktrace: {:#?}",
+        Backtrace::capture()
+    ));
 
     // Transaction 1: Reads the initial values set by Transaction 0
     let mut transaction1 = Transaction::new(
@@ -50,7 +57,11 @@ fn transaction_test() {
         log_manager.clone(),
         buffer_manager.clone(),
         lock_table.clone(),
-    );
+    )
+    .expect(&format!(
+        "Transaction 1: Error creating transaction.\nBacktrace: {:#?}",
+        Backtrace::capture()
+    ));
     transaction1.pin(block.clone());
     let int_value = transaction1
         .get_int(block.clone(), 80)
@@ -103,7 +114,10 @@ fn transaction_test() {
         ));
 
     // Modify and commit the values read by Transaction 1
-    transaction1.commit();
+    transaction1.commit().expect(&format!(
+        "Transaction 1: Commit failed.\nBacktrace: {:#?}",
+        Backtrace::capture()
+    ));
 
     // Transaction 2: Reads the modified values and performs further modifications
     let mut transaction2 = Transaction::new(
@@ -111,7 +125,11 @@ fn transaction_test() {
         log_manager.clone(),
         buffer_manager.clone(),
         lock_table.clone(),
-    );
+    )
+    .expect(&format!(
+        "Transaction 2: Error creating transaction.\nBacktrace: {:#?}",
+        Backtrace::capture()
+    ));
     transaction2.pin(block.clone());
     let new_int_value_2 = transaction2
         .get_int(block.clone(), 80)
@@ -168,7 +186,10 @@ fn transaction_test() {
     );
 
     // Rollback the changes made by Transaction 2
-    transaction2.rollback();
+    transaction2.rollback().expect(&format!(
+        "Transaction 2: Rollback failed.\nBacktrace: {:#?}",
+        Backtrace::capture()
+    ));
 
     // Transaction 3: Verifies that the rollback in Transaction 2 was successful
     let mut transaction3 = Transaction::new(
@@ -176,7 +197,11 @@ fn transaction_test() {
         log_manager.clone(),
         buffer_manager.clone(),
         lock_table.clone(),
-    );
+    )
+    .expect(&format!(
+        "Transaction 3: Error creating transaction.\nBacktrace: {:#?}",
+        Backtrace::capture()
+    ));
     transaction3.pin(block.clone());
 
     let post_rollback_value = transaction3
@@ -196,7 +221,10 @@ fn transaction_test() {
     );
 
     // Commit the final state of the block
-    transaction3.commit();
+    transaction3.commit().expect(&format!(
+        "Transaction 3: Commit failed.\nBacktrace: {:#?}",
+        Backtrace::capture()
+    ));
 
     // Clean up: remove the test directory
     remove_dir_all(test_directory).expect(&format!(

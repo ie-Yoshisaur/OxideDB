@@ -1,14 +1,10 @@
 use std::error::Error;
 use std::fmt;
 
+// `ConcurrencyError` enum represents errors related to concurrency.
 #[derive(Debug)]
 pub enum ConcurrencyError {
     LockAbortError,
-}
-
-#[derive(Debug)]
-pub enum LockAbortError {
-    Timeout,
 }
 
 impl fmt::Display for ConcurrencyError {
@@ -19,6 +15,12 @@ impl fmt::Display for ConcurrencyError {
             }
         }
     }
+}
+
+// `LockAbortError` enum represents errors related to lock abortion.
+#[derive(Debug)]
+pub enum LockAbortError {
+    Timeout,
 }
 
 impl Error for ConcurrencyError {

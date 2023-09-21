@@ -17,7 +17,11 @@ pub struct OxideDB {
 }
 
 impl OxideDB {
-    pub fn new_for_debug(db_directory: PathBuf, block_size: usize, buffer_size: usize) -> OxideDB {
+    pub fn new_from_parameters(
+        db_directory: PathBuf,
+        block_size: usize,
+        buffer_size: usize,
+    ) -> OxideDB {
         let file_manager = Arc::new(Mutex::new(
             FileManager::new(db_directory, block_size).unwrap(),
         ));
@@ -32,12 +36,7 @@ impl OxideDB {
         ));
 
         let buffer_manager = Arc::new(Mutex::new(
-            BufferManager::new(
-                Arc::clone(&file_manager),
-                Arc::clone(&log_manager),
-                buffer_size,
-            )
-            .unwrap(),
+            BufferManager::new(file_manager.clone(), log_manager.clone(), buffer_size).unwrap(),
         ));
 
         let lock_table = Arc::new(Mutex::new(LockTable::new()));
@@ -74,5 +73,6 @@ impl OxideDB {
             self.buffer_manager.clone(),
             self.lock_table.clone(),
         )
+        .unwrap()
     }
 }

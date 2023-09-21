@@ -22,7 +22,7 @@ const I32_SIZE: usize = size_of::<i32>();
 fn recovery_test() {
     let test_directory = PathBuf::from("recoverytest");
     {
-        let db = Arc::new(OxideDB::new_for_debug(test_directory.clone(), 400, 8));
+        let db = Arc::new(OxideDB::new_from_parameters(test_directory.clone(), 400, 8));
         let block0 = BlockId::new("testfile".to_string(), 0);
         let block1 = BlockId::new("testfile".to_string(), 1);
 
@@ -30,7 +30,7 @@ fn recovery_test() {
         modify(db.clone(), block0.clone(), block1.clone());
     }
     {
-        let db = Arc::new(OxideDB::new_for_debug(test_directory.clone(), 400, 8));
+        let db = Arc::new(OxideDB::new_from_parameters(test_directory.clone(), 400, 8));
         let block0 = BlockId::new("testfile".to_string(), 0);
         let block1 = BlockId::new("testfile".to_string(), 1);
 
@@ -96,8 +96,14 @@ fn initialize(db: Arc<OxideDB>, block0: BlockId, block1: BlockId) {
         ));
 
     // Commit both transactions to save the changes
-    transaction0.commit();
-    transaction1.commit();
+    transaction0.commit().expect(&format!(
+        "Transaction 0: Commit failed.\nBacktrace: {:#?}",
+        Backtrace::capture()
+    ));
+    transaction1.commit().expect(&format!(
+        "Transaction 1: Commit failed.\nBacktrace: {:#?}",
+        Backtrace::capture()
+    ));
 
     // Print and verify the initialized values
     let (init_vec0, init_vec1, init_str0, init_str1) =
@@ -223,7 +229,10 @@ fn modify(db: Arc<OxideDB>, block0: BlockId, block1: BlockId) {
     );
 
     // Rollback changes made by transaction2
-    transaction2.rollback();
+    transaction2.rollback().expect(&format!(
+        "Transaction 2: Rollback failed.\nBacktrace: {:#?}",
+        Backtrace::capture()
+    ));
 
     // Note: transaction3 is not committed or rolled back, so its changes will be undone during recovery
 

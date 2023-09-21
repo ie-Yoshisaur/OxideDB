@@ -34,7 +34,7 @@ impl Buffer {
         log_manager: Arc<Mutex<LogManager>>,
     ) -> Result<Self, BufferError> {
         let block_size = file_manager.lock().unwrap().get_block_size();
-        let mut contents = Page::new_from_blocksize(block_size);
+        let contents = Page::new_from_blocksize(block_size);
         Ok(Buffer {
             file_manager,
             log_manager,

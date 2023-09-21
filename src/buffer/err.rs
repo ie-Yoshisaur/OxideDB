@@ -1,8 +1,6 @@
 use crate::file::err::FileError;
 use crate::log::err::LogError;
 use std::fmt;
-use std::sync::MutexGuard;
-use std::sync::PoisonError;
 
 /// Represents an exception when a buffer request cannot be fulfilled.
 /// This usually means the transaction needs to be aborted.

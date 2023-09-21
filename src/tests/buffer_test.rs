@@ -19,7 +19,7 @@ use std::path::PathBuf;
 fn buffer_test() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize OxideDB with only 3 buffers
     let test_directory = PathBuf::from("buffertest");
-    let db = OxideDB::new_for_debug(test_directory.clone(), 400, 3);
+    let db = OxideDB::new_from_parameters(test_directory.clone(), 400, 3);
     let buffer_manager = db.get_buffer_manager().lock().expect(&format!(
         "Locking Buffer Manager Failed\nBacktrace: {:?}",
         Backtrace::capture()

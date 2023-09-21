@@ -14,18 +14,6 @@ pub enum FileError {
     Page(PageError),
 }
 
-/// Represents errors that can occur during operations on a `Page`.
-///
-/// This enum contains variants for IO errors and UTF-8 conversion errors.
-#[derive(Debug)]
-pub enum PageError {
-    /// Wrapper around standard IO errors.
-    IoError(io::Error),
-
-    /// Errors that occur during UTF-8 string conversion.
-    Utf8Error(std::string::FromUtf8Error),
-}
-
 impl fmt::Display for FileError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -44,6 +32,30 @@ impl std::error::Error for FileError {
     }
 }
 
+impl From<io::Error> for FileError {
+    fn from(error: io::Error) -> Self {
+        FileError::Io(error)
+    }
+}
+
+impl From<PageError> for FileError {
+    fn from(error: PageError) -> Self {
+        FileError::Page(error)
+    }
+}
+
+/// Represents errors that can occur during operations on a `Page`.
+///
+/// This enum contains variants for IO errors and UTF-8 conversion errors.
+#[derive(Debug)]
+pub enum PageError {
+    /// Wrapper around standard IO errors.
+    IoError(io::Error),
+
+    /// Errors that occur during UTF-8 string conversion.
+    Utf8Error(std::string::FromUtf8Error),
+}
+
 impl fmt::Display for PageError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -59,18 +71,6 @@ impl std::error::Error for PageError {
             PageError::IoError(err) => Some(err),
             PageError::Utf8Error(err) => Some(err),
         }
-    }
-}
-
-impl From<io::Error> for FileError {
-    fn from(error: io::Error) -> Self {
-        FileError::Io(error)
-    }
-}
-
-impl From<PageError> for FileError {
-    fn from(error: PageError) -> Self {
-        FileError::Page(error)
     }
 }
 

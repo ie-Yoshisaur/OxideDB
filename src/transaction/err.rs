@@ -6,13 +6,20 @@ use crate::transaction::recovery::err::RecoveryError;
 use std::error::Error;
 use std::fmt;
 
+/// `TransactionError` enum represents errors that can occur related to a transaction.
 #[derive(Debug)]
 pub enum TransactionError {
+    /// This variant wraps a `BufferError` to represent errors related to the buffer.
     BufferError(BufferError),
+    /// This variant wraps a `ConcurrencyError` to represent errors related to concurrency.
     ConcurrencyError(ConcurrencyError),
+    /// This variant wraps a `RecoveryError` to represent errors related to recovery.
     RecoveryError(RecoveryError),
+    /// This variant wraps a `PageError` to represent errors related to a page.
     PageError(PageError),
+    /// This variant wraps a `FileError` to represent errors related to a file.
     FileError(FileError),
+    /// This variant is used when a buffer is not found.
     BufferNotFoundError,
 }
 
@@ -42,6 +49,7 @@ impl Error for TransactionError {
     }
 }
 
+// Implementations for converting other error types into `TransactionError`.
 impl From<BufferError> for TransactionError {
     fn from(err: BufferError) -> TransactionError {
         TransactionError::BufferError(err)

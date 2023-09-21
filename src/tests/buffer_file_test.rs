@@ -15,7 +15,7 @@ use std::path::PathBuf;
 fn buffer_file_test() -> Result<(), Box<dyn std::error::Error>> {
     // Create a test directory for OxideDB with a block size of 400 and only 3 buffers.
     let test_directory = PathBuf::from("bufferfiletest");
-    let db = OxideDB::new_for_debug(test_directory.clone(), 400, 8);
+    let db = OxideDB::new_from_parameters(test_directory.clone(), 400, 8);
 
     // Obtain the BufferManager from OxideDB.
     let buffer_manager = db.get_buffer_manager().lock().expect(&format!(

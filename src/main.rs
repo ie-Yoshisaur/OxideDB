@@ -1,6 +1,7 @@
 mod buffer;
 mod file;
 mod log;
+mod record;
 mod server;
 mod transaction;
 

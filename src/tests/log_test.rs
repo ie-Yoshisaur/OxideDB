@@ -17,7 +17,7 @@ use std::path::PathBuf;
 fn log_test() -> Result<(), Box<dyn Error>> {
     // Create a test directory for OxideDB with a block size of 400 and only 3 buffers.
     let test_directory = PathBuf::from("logtest");
-    let db = OxideDB::new_for_debug(test_directory.clone(), 400, 8);
+    let db = OxideDB::new_from_parameters(test_directory.clone(), 400, 8);
     let mut log_manager = db.get_log_manager().lock().expect(&format!(
         "Error while locking log manager\nBacktrace: {:#?}",
         Backtrace::capture()
