@@ -1,7 +1,7 @@
 use crate::file::block_id::BlockId;
 use crate::record::err::RecordPageError;
+use crate::record::field_type::FieldType;
 use crate::record::layout::Layout;
-use crate::record::schema::FieldType;
 use crate::transaction::transaction::Transaction;
 use std::sync::{Arc, Mutex};
 
@@ -176,7 +176,7 @@ impl RecordPage {
                         .unwrap()
                         .set_int(self.block.clone(), field_position as i32, 0, false)
                         .map_err(|e| RecordPageError::TransactionError(e))?,
-                    FieldType::VarChar(_) => self
+                    FieldType::VarChar => self
                         .transaction
                         .lock()
                         .unwrap()
