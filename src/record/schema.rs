@@ -1,13 +1,5 @@
+use crate::record::field_type::FieldType;
 use std::collections::{HashMap, HashSet};
-
-/// Represents the type of a field in a schema.
-#[derive(Debug, Clone)]
-pub enum FieldType {
-    /// Represents an integer field.
-    Integer,
-    /// Represents a variable character field with a given length.
-    VarChar(usize),
-}
 
 /// Information about a field, including its type and length.
 #[derive(Debug, Clone)]
@@ -45,8 +37,10 @@ impl Schema {
     }
 
     /// Returns the type of a given field, if it exists.
-    pub fn get_field_type(&self, field_name: &str) -> Option<&FieldType> {
-        self.info.get(field_name).map(|info| &info.field_type)
+    pub fn get_field_type(&self, field_name: &str) -> Option<FieldType> {
+        self.info
+            .get(field_name)
+            .map(|info| info.field_type.clone())
     }
 
     /// Adds a field to the schema.
@@ -56,7 +50,7 @@ impl Schema {
     /// * `field_name` - The name of the field.
     /// * `field_type` - The type of the field.
     /// * `length` - The length of the field.
-    fn add_field(&mut self, field_name: String, field_type: FieldType, length: usize) {
+    pub fn add_field(&mut self, field_name: String, field_type: FieldType, length: usize) {
         self.fields.insert(field_name.clone());
         self.info
             .insert(field_name, FieldInfo { field_type, length });
@@ -78,7 +72,7 @@ impl Schema {
     /// * `field_name` - The name of the field.
     /// * `length` - The length of the field.
     pub fn add_string_field(&mut self, field_name: String, length: usize) {
-        self.add_field(field_name, FieldType::VarChar(length), length);
+        self.add_field(field_name, FieldType::VarChar, length);
     }
 
     /// Adds a field to the schema based on another schema.
@@ -86,9 +80,9 @@ impl Schema {
     /// # Arguments
     ///
     /// * `field_name` - The name of the field.
-    /// * `sch` - The other schema.
-    fn add(&mut self, field_name: String, sch: &Schema) {
-        if let Some(field_info) = sch.info.get(&field_name) {
+    /// * `schema` - The other schema.
+    fn add(&mut self, field_name: String, schema: &Schema) {
+        if let Some(field_info) = schema.info.get(&field_name) {
             self.add_field(field_name, field_info.field_type.clone(), field_info.length);
         }
     }
@@ -97,10 +91,10 @@ impl Schema {
     ///
     /// # Arguments
     ///
-    /// * `sch` - The other schema.
-    fn add_all(&mut self, sch: &Schema) {
-        for field_name in &sch.fields {
-            self.add(field_name.clone(), sch);
+    /// * `schema` - The other schema.
+    pub fn add_all(&mut self, schema: &Schema) {
+        for field_name in &schema.fields {
+            self.add(field_name.clone(), schema);
         }
     }
 
@@ -113,7 +107,7 @@ impl Schema {
     /// # Returns
     ///
     /// * `true` if the field exists, `false` otherwise.
-    fn has_field(&self, field_name: &str) -> bool {
+    pub fn has_field(&self, field_name: &str) -> bool {
         self.fields.contains(field_name)
     }
 
@@ -126,7 +120,7 @@ impl Schema {
     /// # Returns
     ///
     /// * An `Option` containing the length of the field.
-    fn length(&self, field_name: &str) -> Option<usize> {
+    pub fn get_length(&self, field_name: &str) -> Option<usize> {
         self.info.get(field_name).map(|info| info.length)
     }
 }

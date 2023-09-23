@@ -1,6 +1,6 @@
 use crate::file::page::Page;
 use crate::record::err::LayoutError;
-use crate::record::schema::FieldType;
+use crate::record::field_type::FieldType;
 use crate::record::schema::Schema;
 use std::collections::HashMap;
 use std::mem::size_of;
@@ -36,13 +36,7 @@ impl Layout {
         let mut offsets = HashMap::new();
         let mut position = I32_SIZE;
         for field_name in &schema.get_fields() {
-            let length = match schema
-                .get_field_type(field_name)
-                .ok_or(LayoutError::FieldNotFoundError)?
-            {
-                FieldType::Integer => I32_SIZE,
-                FieldType::VarChar(length) => Page::max_length(*length),
-            };
+            let length = Layout::get_length_in_bytes(schema.clone(), field_name)?;
             offsets.insert(field_name.clone(), position);
             position += length;
         }
@@ -64,7 +58,7 @@ impl Layout {
     /// # Returns
     ///
     /// * `Self` - A new `Layout` object.
-    fn new_from_metadata(
+    pub fn new_from_metadata(
         schema: Arc<Schema>,
         offsets: HashMap<String, usize>,
         slot_size: usize,
@@ -105,5 +99,31 @@ impl Layout {
     /// * `usize` - The size of a slot in bytes.
     pub fn get_slot_size(&self) -> usize {
         self.slot_size
+    }
+
+    /// Calculates the length in bytes of a given field within the schema.
+    ///
+    /// # Arguments
+    ///
+    /// * `schema` - An `Arc` wrapped `Schema` object.
+    /// * `field_name` - The name of the field to find the length for.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<usize, LayoutError>` - Returns `Ok` with the length in bytes if the field is found, otherwise returns `Err`.
+    fn get_length_in_bytes(schema: Arc<Schema>, field_name: &str) -> Result<usize, LayoutError> {
+        Ok(
+            match schema
+                .get_field_type(field_name)
+                .ok_or(LayoutError::FieldNotFoundError)?
+            {
+                FieldType::Integer => I32_SIZE,
+                FieldType::VarChar => Page::max_length(
+                    schema
+                        .get_length(field_name)
+                        .ok_or(LayoutError::FieldNotFoundError)?,
+                ),
+            },
+        )
     }
 }
