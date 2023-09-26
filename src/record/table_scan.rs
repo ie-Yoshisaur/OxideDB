@@ -1,4 +1,6 @@
 use crate::file::block_id::BlockId;
+use crate::query::constant::Constant;
+use crate::query::scan::Scan;
 use crate::record::err::TableScanError;
 use crate::record::layout::Layout;
 use crate::record::record_id::RecordId;
@@ -295,5 +297,64 @@ impl TableScan {
                 .get_size(&self.file_name)
                 .unwrap()
                 - 1
+    }
+}
+
+impl Scan for TableScan {
+    fn before_first(&mut self) {
+        self.before_first();
+    }
+
+    fn next(&mut self) -> bool {
+        self.next().unwrap_or(false)
+    }
+
+    fn get_int(&self, fldname: &str) -> Option<i32> {
+        self.get_int(fldname).ok()
+    }
+
+    fn get_string(&self, fldname: &str) -> Option<String> {
+        self.get_string(fldname).ok()
+    }
+
+    fn get_val(&self, fldname: &str) -> Option<Constant> {
+        unimplemented!()
+    }
+
+    fn has_field(&self, fldname: &str) -> bool {
+        unimplemented!()
+    }
+
+    fn close(&mut self) {
+        self.close();
+    }
+
+    // For Update
+    fn set_val(&mut self, fldname: &str, val: Constant) {
+        unimplemented!()
+    }
+
+    fn set_int(&mut self, fldname: &str, val: i32) {
+        self.set_int(fldname, val).unwrap();
+    }
+
+    fn set_string(&mut self, fldname: &str, val: String) {
+        self.set_string(fldname, val).unwrap();
+    }
+
+    fn insert(&mut self) {
+        self.insert().unwrap();
+    }
+
+    fn delete(&mut self) {
+        self.delete();
+    }
+
+    fn get_rid(&self) -> RecordId {
+        self.get_record_id()
+    }
+
+    fn move_to_rid(&mut self, rid: RecordId) {
+        self.move_to_record_id(rid);
     }
 }

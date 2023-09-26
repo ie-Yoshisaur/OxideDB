@@ -188,11 +188,11 @@ fn concurrency_test() {
         Backtrace::capture()
     ));
     handle_b.join().expect(&format!(
-        "Error joining Thread-A.\nBacktrace: {:#?}",
+        "Error joining Thread-B.\nBacktrace: {:#?}",
         Backtrace::capture()
     ));
     handle_c.join().expect(&format!(
-        "Error joining Thread-A.\nBacktrace: {:#?}",
+        "Error joining Thread-C.\nBacktrace: {:#?}",
         Backtrace::capture()
     ));
     remove_dir_all(test_directory).expect(&format!(

@@ -1,5 +1,6 @@
 use crate::record::field_type::FieldType;
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 /// Information about a field, including its type and length.
 #[derive(Debug, Clone)]
@@ -81,7 +82,7 @@ impl Schema {
     ///
     /// * `field_name` - The name of the field.
     /// * `schema` - The other schema.
-    fn add(&mut self, field_name: String, schema: &Schema) {
+    pub fn add(&mut self, field_name: String, schema: Arc<Schema>) {
         if let Some(field_info) = schema.info.get(&field_name) {
             self.add_field(field_name, field_info.field_type.clone(), field_info.length);
         }
@@ -92,9 +93,9 @@ impl Schema {
     /// # Arguments
     ///
     /// * `schema` - The other schema.
-    pub fn add_all(&mut self, schema: &Schema) {
+    pub fn add_all(&mut self, schema: Arc<Schema>) {
         for field_name in &schema.fields {
-            self.add(field_name.clone(), schema);
+            self.add(field_name.clone(), schema.clone());
         }
     }
 

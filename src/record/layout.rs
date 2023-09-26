@@ -12,7 +12,7 @@ const I32_SIZE: usize = size_of::<i32>();
 /// Represents the layout of a table's records.
 ///
 /// Contains the schema, field offsets, and slot size.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Layout {
     /// The schema of the table's records.
     schema: Arc<Schema>,
