@@ -38,7 +38,7 @@ impl ViewManager {
             let mut schema = Schema::new();
             schema.add_string_field("view_name".to_string(), MAX_NAME);
             schema.add_string_field("view_definition".to_string(), MAX_VIEW_DEFINITION);
-            let schema = Arc::new(schema);
+            let schema = Arc::new(Mutex::new(schema));
             table_manager
                 .lock()
                 .unwrap()

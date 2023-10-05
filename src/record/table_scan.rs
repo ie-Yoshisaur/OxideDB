@@ -1,5 +1,9 @@
 use crate::file::block_id::BlockId;
+use crate::materialize::sort_scan::SortScan;
+use crate::query::constant::Constant;
+use crate::query::scan::Scan;
 use crate::record::err::TableScanError;
+use crate::record::field_type::FieldType;
 use crate::record::layout::Layout;
 use crate::record::record_id::RecordId;
 use crate::record::record_page::RecordPage;
@@ -7,6 +11,7 @@ use crate::transaction::transaction::Transaction;
 use std::sync::{Arc, Mutex};
 
 // TableScan provides methods for scanning a table.
+#[derive(Clone)]
 pub struct TableScan {
     transaction: Arc<Mutex<Transaction>>,
     layout: Arc<Layout>,
@@ -61,7 +66,7 @@ impl TableScan {
     pub fn next(&mut self) -> Result<bool, TableScanError> {
         self.current_slot = self
             .record_page
-            .next_after(self.current_slot)
+            .next_after(&mut self.current_slot)
             .map_err(|e| TableScanError::RecordPageError(e))?;
         while self.current_slot < 0 {
             if self.at_last_block() {
@@ -70,7 +75,7 @@ impl TableScan {
             self.move_to_block(self.record_page.get_block().get_block_number() + 1);
             self.current_slot = self
                 .record_page
-                .next_after(self.current_slot)
+                .next_after(&mut self.current_slot)
                 .map_err(|e| TableScanError::RecordPageError(e))?;
         }
         Ok(true)
@@ -106,19 +111,44 @@ impl TableScan {
             .map_err(|e| TableScanError::RecordPageError(e))
     }
 
+    /// Gets the value of a specified field in the current record as a `Constant`.
+    ///
+    /// # Arguments
+    ///
+    /// * `field_name` - The name of the field to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// * `Option<Constant>` - The value wrapped as a `Constant` if the field exists, None otherwise.
+    pub fn get_value(&self, field_name: &str) -> Option<Constant> {
+        if self
+            .layout
+            .get_schema()
+            .lock()
+            .unwrap()
+            .get_field_type(field_name)
+            .unwrap()
+            == FieldType::Integer
+        {
+            return Some(Constant::Int(self.get_int(field_name).unwrap()));
+        } else {
+            return Some(Constant::Str(self.get_string(field_name).unwrap()));
+        }
+    }
+
     /// Sets the integer value of a specified field in the current record.
     ///
     /// # Arguments
     ///
     /// * `field_name` - The name of the field to set.
-    /// * `val` - The integer value to set.
+    /// * `value` - The integer value to set.
     ///
     /// # Returns
     ///
     /// * `Result<(), TableScanError>` - Ok or an error.
-    pub fn set_int(&mut self, field_name: &str, val: i32) -> Result<(), TableScanError> {
+    pub fn set_int(&mut self, field_name: &str, value: i32) -> Result<(), TableScanError> {
         self.record_page
-            .set_int(self.current_slot as usize, field_name, val)
+            .set_int(self.current_slot as usize, field_name, value)
             .map_err(|e| TableScanError::RecordPageError(e))?;
         Ok(())
     }
@@ -128,14 +158,14 @@ impl TableScan {
     /// # Arguments
     ///
     /// * `field_name` - The name of the field to set.
-    /// * `val` - The string value to set.
+    /// * `value` - The string value to set.
     ///
     /// # Returns
     ///
     /// * `Result<(), TableScanError>` - Ok or an error.
-    pub fn set_string(&mut self, field_name: &str, val: String) -> Result<(), TableScanError> {
+    pub fn set_string(&mut self, field_name: &str, value: String) -> Result<(), TableScanError> {
         self.record_page
-            .set_string(self.current_slot as usize, field_name, val)
+            .set_string(self.current_slot as usize, field_name, value)
             .map_err(|e| TableScanError::RecordPageError(e))?;
         Ok(())
     }
@@ -148,7 +178,7 @@ impl TableScan {
     pub fn insert(&mut self) -> Result<(), TableScanError> {
         self.current_slot = self
             .record_page
-            .insert_after(self.current_slot)
+            .insert_after(&mut self.current_slot)
             .map_err(|e| TableScanError::RecordPageError(e))?;
         while self.current_slot < 0 {
             if self.at_last_block() {
@@ -158,7 +188,7 @@ impl TableScan {
             }
             self.current_slot = self
                 .record_page
-                .insert_after(self.current_slot)
+                .insert_after(&mut self.current_slot)
                 .map_err(|e| TableScanError::RecordPageError(e))?;
         }
         Ok(())
@@ -166,7 +196,7 @@ impl TableScan {
 
     /// Deletes the current record from the table.
     pub fn delete(&mut self) {
-        self.record_page.delete(self.current_slot as usize);
+        self.record_page.delete(self.current_slot as usize).unwrap();
     }
 
     /// Moves to a specific record identified by a RecordId.
@@ -199,6 +229,32 @@ impl TableScan {
             .lock()
             .unwrap()
             .unpin(self.record_page.get_block());
+    }
+
+    /// Sets the value of a specified field in the current record.
+    ///
+    /// # Arguments
+    ///
+    /// * `field_name` - The name of the field to set.
+    /// * `value` - The value to set as a `Constant`.
+    ///
+    /// This function will automatically determine the appropriate field type (integer or string)
+    /// based on the schema and set the value accordingly.
+    fn set_value(&mut self, field_name: &str, value: Constant) {
+        if self
+            .layout
+            .get_schema()
+            .lock()
+            .unwrap()
+            .get_field_type(field_name)
+            .unwrap()
+            == FieldType::Integer
+        {
+            self.set_int(field_name, value.as_int()).unwrap();
+        } else {
+            self.set_string(field_name, value.as_str().to_string())
+                .unwrap();
+        }
     }
 
     /// Moves to a specific block in the table.
@@ -295,5 +351,75 @@ impl TableScan {
                 .get_size(&self.file_name)
                 .unwrap()
                 - 1
+    }
+}
+
+impl Scan for TableScan {
+    fn before_first(&mut self) {
+        self.before_first();
+    }
+
+    fn next(&mut self) -> bool {
+        self.next().unwrap_or(false)
+    }
+
+    fn get_int(&self, field_name: &str) -> Option<i32> {
+        self.get_int(field_name).ok()
+    }
+
+    fn get_string(&self, field_name: &str) -> Option<String> {
+        self.get_string(field_name).ok()
+    }
+
+    fn get_value(&self, field_name: &str) -> Option<Constant> {
+        self.get_value(field_name)
+    }
+
+    fn has_field(&self, field_name: &str) -> bool {
+        self.layout
+            .get_schema()
+            .lock()
+            .unwrap()
+            .has_field(field_name)
+    }
+
+    fn close(&mut self) {
+        self.close();
+    }
+
+    fn set_value(&mut self, field_name: &str, value: Constant) {
+        self.set_value(field_name, value);
+    }
+
+    fn set_int(&mut self, field_name: &str, value: i32) {
+        self.set_int(field_name, value).unwrap();
+    }
+
+    fn set_string(&mut self, field_name: &str, value: String) {
+        self.set_string(field_name, value).unwrap();
+    }
+
+    fn insert(&mut self) {
+        self.insert().unwrap();
+    }
+
+    fn delete(&mut self) {
+        self.delete();
+    }
+
+    fn get_record_id(&self) -> RecordId {
+        self.get_record_id()
+    }
+
+    fn move_to_record_id(&mut self, record_id: RecordId) {
+        self.move_to_record_id(record_id);
+    }
+
+    fn as_sort_scan(&self) -> Option<SortScan> {
+        None
+    }
+
+    fn as_table_scan(&self) -> Option<TableScan> {
+        Some(self.clone())
     }
 }
