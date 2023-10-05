@@ -146,8 +146,11 @@ impl RecordPage {
     /// # Arguments
     ///
     /// * `slot` - The slot number to delete.
-    pub fn delete(&mut self, slot: usize) {
-        self.set_flag(slot, EMPTY);
+    ///
+    ////// * `Result<(), RecordPageError>` - Ok or an error.
+    pub fn delete(&mut self, slot: usize) -> Result<(), RecordPageError> {
+        self.set_flag(slot, EMPTY)?;
+        Ok(())
     }
 
     /// Formats the block by setting all slots to EMPTY and initializing fields.
@@ -157,16 +160,18 @@ impl RecordPage {
     /// * `Result<(), RecordPageError>` - Ok or an error.
     pub fn format(&mut self) -> Result<(), RecordPageError> {
         let mut slot = 0;
+        let schema = self.layout.get_schema();
+        let schema_guard = schema.lock().unwrap();
         while self.is_valid_slot(slot) {
-            self.set_flag(slot, EMPTY);
-            let schema = self.layout.get_schema();
-            for field_name in schema.get_fields() {
+            self.set_flag(slot, EMPTY)?;
+            for field_name in schema_guard.get_fields() {
+                self.set_flag(slot, EMPTY)?;
                 let field_position = self.get_offset(slot)
                     + self
                         .layout
                         .get_offset(&field_name)
                         .ok_or(RecordPageError::OffsetNotFoundError)?;
-                match schema
+                match schema_guard
                     .get_field_type(&field_name)
                     .ok_or(RecordPageError::FieldNotFoundError)?
                 {
@@ -203,7 +208,7 @@ impl RecordPage {
     /// # Returns
     ///
     /// * `Result<i32, RecordPageError>` - The next slot number or an error.
-    pub fn next_after(&self, slot: i32) -> Result<i32, RecordPageError> {
+    pub fn next_after(&self, slot: &mut i32) -> Result<i32, RecordPageError> {
         self.search_after(slot, USED)
     }
 
@@ -216,10 +221,10 @@ impl RecordPage {
     /// # Returns
     ///
     /// * `Result<i32, RecordPageError>` - The new slot number or an error.
-    pub fn insert_after(&mut self, slot: i32) -> Result<i32, RecordPageError> {
+    pub fn insert_after(&mut self, slot: &mut i32) -> Result<i32, RecordPageError> {
         let new_slot = self.search_after(slot, EMPTY)?;
         if new_slot >= 0 {
-            self.set_flag(new_slot as usize, USED);
+            self.set_flag(new_slot as usize, USED)?
         }
         Ok(new_slot)
     }
@@ -263,21 +268,23 @@ impl RecordPage {
     /// # Returns
     ///
     /// * `Result<i32, RecordPageError>` - The found slot number or an error.
-    fn search_after(&self, slot: i32, flag: i32) -> Result<i32, RecordPageError> {
-        let mut slot = slot + 1;
-        while self.is_valid_slot(slot as usize) {
-            if self
+    fn search_after(&self, slot: &mut i32, flag: i32) -> Result<i32, RecordPageError> {
+        *slot += 1;
+        while self.is_valid_slot(*slot as usize) {
+            let value_result = self
                 .transaction
                 .lock()
                 .unwrap()
-                .get_int(self.block.clone(), self.get_offset(slot as usize) as i32)
-                .map_err(|e| RecordPageError::TransactionError(e))?
-                .ok_or(RecordPageError::BufferNotFoundError)?
-                == flag
-            {
-                return Ok(slot as i32);
+                .get_int(self.block.clone(), self.get_offset(*slot as usize) as i32)
+                .map_err(|e| RecordPageError::TransactionError(e));
+
+            if let Ok(Some(value)) = value_result {
+                if value == flag {
+                    return Ok(*slot as i32);
+                }
             }
-            slot += 1;
+
+            *slot += 1;
         }
         Ok(-1)
     }

@@ -39,7 +39,7 @@ fn table_manager_test() -> Result<(), Box<dyn std::error::Error>> {
     let mut schema = Schema::new();
     schema.add_field("A".to_string(), FieldType::Integer, I32_SIZE);
     schema.add_field("B".to_string(), FieldType::VarChar, 9);
-    let schema = Arc::new(schema);
+    let schema = Arc::new(Mutex::new(schema));
 
     // Create a new table using the TableManager
     table_manager
@@ -66,24 +66,27 @@ fn table_manager_test() -> Result<(), Box<dyn std::error::Error>> {
     // Output table layout details
     println!("MyTable has slot size {}", slot_size);
     println!("Its fields are:");
-    for field_name in schema2.get_fields() {
-        let field_type = schema2.get_field_type(&field_name).expect(&format!(
-            "Failed to get field type for '{}'.\nBacktrace: {:#?}",
-            field_name,
-            Backtrace::capture()
-        ));
-        let type_str = match field_type {
-            FieldType::Integer => "int".to_string(),
-            FieldType::VarChar => {
-                let string_length = schema2.get_length(&field_name).expect(&format!(
-                    "Failed to get string length for '{}'.\nBacktrace: {:#?}",
-                    field_name,
-                    Backtrace::capture()
-                ));
-                format!("varchar({})", string_length)
-            }
-        };
-        println!("{}: {}", field_name, type_str);
+    {
+        let schema_guard = schema2.lock().unwrap();
+        for field_name in schema_guard.get_fields() {
+            let field_type = schema_guard.get_field_type(&field_name).expect(&format!(
+                "Failed to get field type for '{}'.\nBacktrace: {:#?}",
+                field_name,
+                Backtrace::capture()
+            ));
+            let type_str = match field_type {
+                FieldType::Integer => "int".to_string(),
+                FieldType::VarChar => {
+                    let string_length = schema_guard.get_length(&field_name).expect(&format!(
+                        "Failed to get string length for '{}'.\nBacktrace: {:#?}",
+                        field_name,
+                        Backtrace::capture()
+                    ));
+                    format!("varchar({})", string_length)
+                }
+            };
+            println!("{}: {}", field_name, type_str);
+        }
     }
 
     // Commit the transaction

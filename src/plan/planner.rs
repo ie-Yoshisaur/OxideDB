@@ -1,3 +1,7 @@
+// no docs
+// no comments
+// no error handlings
+// no variable name edit
 use crate::parse::parser::Parser;
 use crate::parse::update_data::UpdateData;
 use crate::plan::plan::Plan;
@@ -17,7 +21,11 @@ impl Planner {
         Planner { qplanner, uplanner }
     }
 
-    pub fn create_query_plan(&self, qry: &str, tx: Arc<Mutex<Transaction>>) -> Arc<dyn Plan> {
+    pub fn create_query_plan(
+        &self,
+        qry: &str,
+        tx: Arc<Mutex<Transaction>>,
+    ) -> Arc<Mutex<dyn Plan>> {
         let mut parser = Parser::new(qry);
         let data = parser.query();
         self.qplanner.create_plan(data, tx)
@@ -25,14 +33,14 @@ impl Planner {
 
     pub fn execute_update(&self, cmd: &str, tx: Arc<Mutex<Transaction>>) -> usize {
         let mut parser = Parser::new(cmd);
-        let data = parser.update_cmd().unwrap();
-        match data {
+        parser.update_cmd().map(|data| match data {
             UpdateData::Insert(data) => self.uplanner.execute_insert(data, tx),
             UpdateData::Delete(data) => self.uplanner.execute_delete(data, tx),
             UpdateData::Modify(data) => self.uplanner.execute_modify(data, tx),
             UpdateData::CreateTable(data) => self.uplanner.execute_create_table(data, tx),
             UpdateData::CreateView(data) => self.uplanner.execute_create_view(data, tx),
             UpdateData::CreateIndex(data) => self.uplanner.execute_create_index(data, tx),
-        }
+        });
+        0
     }
 }

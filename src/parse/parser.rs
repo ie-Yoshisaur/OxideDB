@@ -1,3 +1,7 @@
+// no docs
+// no comments
+// no error handlings
+// no variable name edit
 use crate::parse::create_index_data::CreateIndexData;
 use crate::parse::create_table_data::CreateTableData;
 use crate::parse::create_view_data::CreateViewData;
@@ -12,7 +16,7 @@ use crate::query::expression::Expression;
 use crate::query::predicate::Predicate;
 use crate::query::term::Term;
 use crate::record::schema::Schema;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 pub struct Parser<'a> {
     lex: Lexer<'a>,
@@ -51,7 +55,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn predicate(&mut self) -> Predicate {
-        let mut pred = Predicate::from_term(self.term());
+        let mut pred = Predicate::new_from_term(self.term());
         if self.lex.match_keyword("and") {
             self.lex.eat_keyword("and");
             pred.conjoin_with(self.predicate());
@@ -189,8 +193,11 @@ impl<'a> Parser<'a> {
         self.lex.eat_keyword("table");
         let tblname = self.lex.eat_id();
         self.lex.eat_delim('(');
-        let schema = Arc::new(self.field_defs());
+        println!("create_table!");
+        let schema = Arc::new(Mutex::new(self.field_defs()));
+        println!("create_table");
         self.lex.eat_delim(')');
+        println!("create_table");
         CreateTableData::new(tblname, schema)
     }
 
@@ -198,7 +205,7 @@ impl<'a> Parser<'a> {
         let mut schema = self.field_def();
         while self.lex.match_delim(',') {
             self.lex.eat_delim(',');
-            let schema_to_add = Arc::new(self.field_defs());
+            let schema_to_add = Arc::new(Mutex::new(self.field_defs()));
             schema.add_all(schema_to_add);
         }
         schema

@@ -11,7 +11,7 @@ use std::sync::{Arc, Mutex};
 /// It refreshes the statistics periodically.
 pub struct StatisticsManager {
     table_manager: Arc<Mutex<TableManager>>,
-    table_statistics: Mutex<HashMap<String, StatisticsInformation>>,
+    table_statistics: HashMap<String, StatisticsInformation>,
     number_calls: Mutex<i32>,
 }
 
@@ -30,9 +30,9 @@ impl StatisticsManager {
         table_manager: Arc<Mutex<TableManager>>,
         transaction: Arc<Mutex<Transaction>>,
     ) -> Result<Self, StatisticsManagerError> {
-        let statistics_manager = Self {
+        let mut statistics_manager = Self {
             table_manager,
-            table_statistics: Mutex::new(HashMap::new()),
+            table_statistics: HashMap::new(),
             number_calls: Mutex::new(0),
         };
         statistics_manager.refresh_statistics(transaction)?;
@@ -44,31 +44,35 @@ impl StatisticsManager {
     /// # Arguments
     ///
     /// * `table_name` - The name of the table.
-    /// * `layout` - The `Layout` of the table.
+    /// * `layout` - The Arc-wrapped `Layout` of the table.
     /// * `transaction` - An Arc-wrapped Mutex containing the current `Transaction`.
     ///
     /// # Returns
     ///
     /// Returns a `Result` containing the `StatisticsInformation` for the table, or an error if retrieval fails.
-    pub fn get_statistics_info(
-        &self,
+    pub fn get_statistics_information(
+        &mut self,
         table_name: &str,
-        layout: Layout,
+        layout: Arc<Layout>,
         transaction: Arc<Mutex<Transaction>>,
     ) -> Result<StatisticsInformation, StatisticsManagerError> {
-        let mut number_calls = self.number_calls.lock().unwrap();
-        *number_calls += 1;
-        if *number_calls > 100 {
+        let should_refresh = {
+            let mut number_calls = self.number_calls.lock().unwrap();
+            *number_calls += 1;
+            *number_calls > 100
+        };
+
+        if should_refresh {
             self.refresh_statistics(transaction.clone())?;
         }
 
-        let mut table_statistics = self.table_statistics.lock().unwrap();
-        match table_statistics.get(table_name) {
+        match self.table_statistics.get(table_name) {
             Some(statistics_information) => Ok(statistics_information.clone()),
             None => {
                 let statistics_information =
                     self.calculate_table_statistics(table_name, layout, transaction)?;
-                table_statistics.insert(table_name.to_string(), statistics_information.clone());
+                self.table_statistics
+                    .insert(table_name.to_string(), statistics_information.clone());
                 Ok(statistics_information)
             }
         }
@@ -84,37 +88,39 @@ impl StatisticsManager {
     ///
     /// Returns a `Result` indicating success or failure.
     fn refresh_statistics(
-        &self,
+        &mut self,
         transaction: Arc<Mutex<Transaction>>,
     ) -> Result<(), StatisticsManagerError> {
-        let mut table_statistics = self.table_statistics.lock().unwrap();
-        table_statistics.clear();
+        self.table_statistics = HashMap::new();
         *self.number_calls.lock().unwrap() = 0;
-
-        let layout = self
-            .table_manager
-            .lock()
-            .unwrap()
-            .get_layout("table_catalog", transaction.clone())
-            .map_err(|e| StatisticsManagerError::TableManagerError(e))?;
-        let mut table_scan = TableScan::new(transaction.clone(), "table_catalog", Arc::new(layout))
-            .map_err(|e| StatisticsManagerError::TableScanError(e))?;
-        while table_scan
+        let table_catalog_layout = Arc::new(
+            self.table_manager
+                .lock()
+                .unwrap()
+                .get_layout("table_catalog", transaction.clone())
+                .map_err(|e| StatisticsManagerError::TableManagerError(e))?,
+        );
+        let mut table_catalog =
+            TableScan::new(transaction.clone(), "table_catalog", table_catalog_layout)
+                .map_err(|e| StatisticsManagerError::TableScanError(e))?;
+        while table_catalog
             .next()
             .map_err(|e| StatisticsManagerError::TableScanError(e))?
         {
-            let table_name = table_scan.get_string("table_name").unwrap();
-            let layout = self
-                .table_manager
-                .lock()
-                .unwrap()
-                .get_layout(&table_name, transaction.clone())
-                .map_err(|e| StatisticsManagerError::TableManagerError(e))?;
+            let table_name = table_catalog.get_string("table_name").unwrap();
+            let layout = Arc::new(
+                self.table_manager
+                    .lock()
+                    .unwrap()
+                    .get_layout(&table_name, transaction.clone())
+                    .map_err(|e| StatisticsManagerError::TableManagerError(e))?,
+            );
             let statistics_information =
                 self.calculate_table_statistics(&table_name, layout, transaction.clone())?;
-            table_statistics.insert(table_name, statistics_information);
+            self.table_statistics
+                .insert(table_name, statistics_information);
         }
-        table_scan.close();
+        table_catalog.close();
         Ok(())
     }
 
@@ -123,7 +129,7 @@ impl StatisticsManager {
     /// # Arguments
     ///
     /// * `table_name` - The name of the table.
-    /// * `layout` - The `Layout` of the table.
+    /// * `layout` - The Arc-wrapped `Layout` of the table.
     /// * `transaction` - An Arc-wrapped Mutex containing the current `Transaction`.
     ///
     /// # Returns
@@ -132,12 +138,12 @@ impl StatisticsManager {
     fn calculate_table_statistics(
         &self,
         table_name: &str,
-        layout: Layout,
+        layout: Arc<Layout>,
         transaction: Arc<Mutex<Transaction>>,
     ) -> Result<StatisticsInformation, StatisticsManagerError> {
         let mut number_records = 0;
         let mut number_blocks = 0;
-        let mut table_scan = TableScan::new(transaction, table_name, Arc::new(layout))
+        let mut table_scan = TableScan::new(transaction, table_name, layout)
             .map_err(|e| StatisticsManagerError::TableScanError(e))?;
         while table_scan
             .next()

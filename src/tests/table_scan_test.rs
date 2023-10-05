@@ -28,11 +28,11 @@ fn table_scan_test() {
     let mut schema = Schema::new();
     schema.add_int_field("A".to_string());
     schema.add_string_field("B".to_string(), 9);
-    let schema = Arc::new(schema);
+    let schema = Arc::new(Mutex::new(schema));
     let layout = Arc::new(Layout::new(schema.clone()).unwrap());
 
     // Print field offsets
-    for field_name in layout.get_schema().get_fields() {
+    for field_name in layout.get_schema().lock().unwrap().get_fields() {
         let offset = layout.get_offset(&field_name).unwrap();
         println!("{} has offset {}", field_name, offset);
     }

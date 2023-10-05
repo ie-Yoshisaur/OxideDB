@@ -1,9 +1,14 @@
+use crate::materialize::sort_scan::SortScan;
 use crate::query::constant::Constant;
 use crate::query::predicate::Predicate;
 use crate::query::scan::Scan;
 use crate::record::record_id::RecordId;
 use std::sync::{Arc, Mutex};
 
+// no docs
+// no comments
+// no error handlings
+// no variable name edit
 pub struct SelectScan {
     s: Arc<Mutex<dyn Scan>>,
     pred: Predicate,
@@ -35,8 +40,8 @@ impl SelectScan {
         self.s.lock().unwrap().get_string(fldname)
     }
 
-    pub fn get_val(&self, fldname: &str) -> Option<Constant> {
-        self.s.lock().unwrap().get_val(fldname)
+    pub fn get_value(&self, fldname: &str) -> Option<Constant> {
+        self.s.lock().unwrap().get_value(fldname)
     }
 
     pub fn has_field(&self, fldname: &str) -> bool {
@@ -57,8 +62,8 @@ impl SelectScan {
         self.s.lock().unwrap().set_string(fldname, val);
     }
 
-    pub fn set_val(&mut self, fldname: &str, val: Constant) {
-        self.s.lock().unwrap().set_val(fldname, val);
+    pub fn set_value(&mut self, fldname: &str, val: Constant) {
+        self.s.lock().unwrap().set_value(fldname, val);
     }
 
     pub fn delete(&mut self) {
@@ -69,12 +74,12 @@ impl SelectScan {
         self.s.lock().unwrap().insert();
     }
 
-    pub fn get_rid(&self) -> RecordId {
-        self.s.lock().unwrap().get_rid()
+    pub fn get_record_id(&self) -> RecordId {
+        self.s.lock().unwrap().get_record_id()
     }
 
-    pub fn move_to_rid(&mut self, rid: RecordId) {
-        self.s.lock().unwrap().move_to_rid(rid);
+    pub fn move_to_record_id(&mut self, record_id: RecordId) {
+        self.s.lock().unwrap().move_to_record_id(record_id);
     }
 }
 
@@ -95,8 +100,8 @@ impl Scan for SelectScan {
         self.get_string(fldname)
     }
 
-    fn get_val(&self, fldname: &str) -> Option<Constant> {
-        self.get_val(fldname)
+    fn get_value(&self, fldname: &str) -> Option<Constant> {
+        self.get_value(fldname)
     }
 
     fn has_field(&self, fldname: &str) -> bool {
@@ -108,8 +113,8 @@ impl Scan for SelectScan {
     }
 
     // For Update
-    fn set_val(&mut self, fldname: &str, val: Constant) {
-        self.set_val(fldname, val);
+    fn set_value(&mut self, fldname: &str, val: Constant) {
+        self.set_value(fldname, val);
     }
 
     fn set_int(&mut self, fldname: &str, val: i32) {
@@ -128,11 +133,15 @@ impl Scan for SelectScan {
         self.delete();
     }
 
-    fn get_rid(&self) -> RecordId {
-        self.get_rid()
+    fn get_record_id(&self) -> RecordId {
+        self.get_record_id()
     }
 
-    fn move_to_rid(&mut self, rid: RecordId) {
-        self.move_to_rid(rid);
+    fn move_to_record_id(&mut self, record_id: RecordId) {
+        self.move_to_record_id(record_id);
+    }
+
+    fn as_sort_scan(&self) -> Option<SortScan> {
+        None
     }
 }

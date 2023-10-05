@@ -1,3 +1,7 @@
+// no docs
+// no comments
+// no error handlings
+// no variable name edit
 use crate::query::scan::Scan;
 use crate::record::schema::Schema;
 use std::sync::{Arc, Mutex};
@@ -5,7 +9,7 @@ use std::sync::{Arc, Mutex};
 pub trait Plan {
     // Opens a scan corresponding to this plan.
     // The scan will be positioned before its first record.
-    fn open(&self) -> Arc<Mutex<dyn Scan>>;
+    fn open(&mut self) -> Arc<Mutex<dyn Scan>>;
 
     // Returns an estimate of the number of block accesses
     // that will occur when the scan is read to completion.
@@ -20,5 +24,5 @@ pub trait Plan {
     fn distinct_values(&self, fldname: &str) -> i32;
 
     // Returns the schema of the query.
-    fn schema(&self) -> Arc<Schema>;
+    fn schema(&self) -> Arc<Mutex<Schema>>;
 }

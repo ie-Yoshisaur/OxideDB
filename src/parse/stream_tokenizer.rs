@@ -1,6 +1,11 @@
+// no docs
+// no comments
+// no error handlings
+// no variable name edit
 use std::iter::Peekable;
 use std::str::Chars;
 
+#[derive(PartialEq, Debug)]
 pub enum Token {
     Delim(char),
     IntConstant(i32),
@@ -18,7 +23,10 @@ impl<'a> StreamTokenizer<'a> {
     pub fn new(input: &'a str) -> Self {
         Self {
             chars: input.chars().peekable(),
-            keywords: vec!["select", "from", "where", "and"],
+            keywords: vec![
+                "select", "from", "where", "and", "insert", "into", "values", "delete", "update",
+                "set", "create", "table", "int", "varchar", "view", "as", "index", "on",
+            ],
         }
     }
 

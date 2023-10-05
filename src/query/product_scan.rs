@@ -1,8 +1,13 @@
+use crate::materialize::sort_scan::SortScan;
 use crate::query::constant::Constant;
 use crate::query::scan::Scan;
 use crate::record::record_id::RecordId;
 use std::sync::{Arc, Mutex};
 
+// no docs
+// no comments
+// no error handlings
+// no variable name edit
 pub struct ProductScan {
     s1: Arc<Mutex<dyn Scan>>,
     s2: Arc<Mutex<dyn Scan>>,
@@ -46,11 +51,11 @@ impl ProductScan {
         }
     }
 
-    pub fn get_val(&self, fldname: &str) -> Constant {
+    pub fn get_value(&self, fldname: &str) -> Constant {
         if self.s1.lock().unwrap().has_field(fldname) {
-            self.s1.lock().unwrap().get_val(fldname).unwrap()
+            self.s1.lock().unwrap().get_value(fldname).unwrap()
         } else {
-            self.s2.lock().unwrap().get_val(fldname).unwrap()
+            self.s2.lock().unwrap().get_value(fldname).unwrap()
         }
     }
 
@@ -81,8 +86,8 @@ impl Scan for ProductScan {
         Some(self.get_string(fldname))
     }
 
-    fn get_val(&self, fldname: &str) -> Option<Constant> {
-        Some(self.get_val(fldname))
+    fn get_value(&self, fldname: &str) -> Option<Constant> {
+        Some(self.get_value(fldname))
     }
 
     fn has_field(&self, fldname: &str) -> bool {
@@ -94,15 +99,15 @@ impl Scan for ProductScan {
     }
 
     // For Update
-    fn set_val(&mut self, _fldname: &str, _val: Constant) {
+    fn set_value(&mut self, _fldname: &str, _value: Constant) {
         unimplemented!()
     }
 
-    fn set_int(&mut self, _fldname: &str, _val: i32) {
+    fn set_int(&mut self, _fldname: &str, _value: i32) {
         unimplemented!()
     }
 
-    fn set_string(&mut self, _fldname: &str, _val: String) {
+    fn set_string(&mut self, _fldname: &str, _value: String) {
         unimplemented!()
     }
 
@@ -114,11 +119,15 @@ impl Scan for ProductScan {
         unimplemented!()
     }
 
-    fn get_rid(&self) -> RecordId {
+    fn get_record_id(&self) -> RecordId {
         unimplemented!()
     }
 
-    fn move_to_rid(&mut self, _rid: RecordId) {
+    fn move_to_record_id(&mut self, _record_id: RecordId) {
         unimplemented!()
+    }
+
+    fn as_sort_scan(&self) -> Option<SortScan> {
+        None
     }
 }

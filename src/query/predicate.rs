@@ -5,7 +5,11 @@ use crate::query::term::Term;
 use crate::record::schema::Schema;
 use std::sync::{Arc, Mutex};
 
-#[derive(Clone)]
+// no docs
+// no comments
+// no error handlings
+// no variable name edit
+#[derive(Clone, Debug)]
 pub struct Predicate {
     terms: Vec<Term>,
 }
@@ -15,7 +19,7 @@ impl Predicate {
         Self { terms: Vec::new() }
     }
 
-    pub fn from_term(t: Term) -> Self {
+    pub fn new_from_term(t: Term) -> Self {
         Self { terms: vec![t] }
     }
 
@@ -40,7 +44,7 @@ impl Predicate {
         factor
     }
 
-    pub fn select_sub_pred(&self, sch: Arc<Schema>) -> Option<Self> {
+    pub fn select_sub_pred(&self, sch: Arc<Mutex<Schema>>) -> Option<Self> {
         let mut result = Predicate::new();
         for term in &self.terms {
             if term.applies_to(sch.clone()) {
@@ -54,12 +58,16 @@ impl Predicate {
         }
     }
 
-    pub fn join_sub_pred(&self, sch1: Arc<Schema>, sch2: Arc<Schema>) -> Option<Self> {
+    pub fn join_sub_pred(
+        &self,
+        sch1: Arc<Mutex<Schema>>,
+        sch2: Arc<Mutex<Schema>>,
+    ) -> Option<Self> {
         let mut result = Predicate::new();
         let mut new_sch = Schema::new();
         new_sch.add_all(sch1.clone());
         new_sch.add_all(sch2.clone());
-        let new_sch = Arc::new(new_sch);
+        let new_sch = Arc::new(Mutex::new(new_sch));
         for term in &self.terms {
             if !term.applies_to(sch1.clone())
                 && !term.applies_to(sch2.clone())

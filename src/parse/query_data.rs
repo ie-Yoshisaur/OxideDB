@@ -1,6 +1,11 @@
+// no docs
+// no comments
+// no error handlings
+// no variable name edit
 use crate::query::predicate::Predicate;
 use std::fmt;
 
+#[derive(Debug)]
 pub struct QueryData {
     fields: Vec<String>,
     tables: Vec<String>,

@@ -1,3 +1,7 @@
+// no docs
+// no comments
+// no error handlings
+// no variable name edit
 use crate::metadata::metadata_manager::MetadataManager;
 use crate::parse::create_index_data::CreateIndexData;
 use crate::parse::create_table_data::CreateTableData;
@@ -23,13 +27,13 @@ impl BasicUpdatePlanner {
     }
 
     pub fn execute_delete(&self, data: DeleteData, tx: Arc<Mutex<Transaction>>) -> usize {
-        let mut p: Arc<dyn Plan> = Arc::new(TablePlan::new(
+        let mut p: Arc<Mutex<dyn Plan>> = Arc::new(Mutex::new(TablePlan::new(
             tx.clone(),
             data.table_name(),
             self.mdm.clone(),
-        ));
-        p = Arc::new(SelectPlan::new(p, data.pred()));
-        let us = p.open();
+        )));
+        p = Arc::new(Mutex::new(SelectPlan::new(p, data.pred())));
+        let us = p.lock().unwrap().open();
         let mut count = 0;
         while us.lock().unwrap().next() {
             us.lock().unwrap().delete();
@@ -40,17 +44,17 @@ impl BasicUpdatePlanner {
     }
 
     pub fn execute_modify(&self, data: ModifyData, tx: Arc<Mutex<Transaction>>) -> usize {
-        let mut p: Arc<dyn Plan> = Arc::new(TablePlan::new(
+        let mut p: Arc<Mutex<dyn Plan>> = Arc::new(Mutex::new(TablePlan::new(
             tx.clone(),
             data.table_name(),
             self.mdm.clone(),
-        ));
-        p = Arc::new(SelectPlan::new(p, data.pred()));
-        let us = p.open();
+        )));
+        p = Arc::new(Mutex::new(SelectPlan::new(p, data.pred())));
+        let us = p.lock().unwrap().open();
         let mut count = 0;
         while us.lock().unwrap().next() {
             let val = data.new_value().evaluate(us.clone());
-            us.lock().unwrap().set_val(data.target_field(), val);
+            us.lock().unwrap().set_value(data.target_field(), val);
             count += 1;
         }
         us.lock().unwrap().close();
@@ -58,15 +62,15 @@ impl BasicUpdatePlanner {
     }
 
     pub fn execute_insert(&self, data: InsertData, tx: Arc<Mutex<Transaction>>) -> usize {
-        let p: Arc<dyn Plan> = Arc::new(TablePlan::new(
+        let mut p: Arc<Mutex<dyn Plan>> = Arc::new(Mutex::new(TablePlan::new(
             tx.clone(),
             data.table_name(),
             self.mdm.clone(),
-        ));
-        let us = p.open();
+        )));
+        let us = p.lock().unwrap().open();
         us.lock().unwrap().insert();
         for (fldname, val) in data.fields().iter().zip(data.vals().iter()) {
-            us.lock().unwrap().set_val(fldname, val.clone());
+            us.lock().unwrap().set_value(fldname, val.clone());
         }
         us.lock().unwrap().close();
         1

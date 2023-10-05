@@ -1,3 +1,7 @@
+// no docs
+// no comments
+// no error handlings
+// no variable name edit
 use crate::parse::create_index_data::CreateIndexData;
 use crate::parse::create_table_data::CreateTableData;
 use crate::parse::create_view_data::CreateViewData;

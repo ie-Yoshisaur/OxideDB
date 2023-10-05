@@ -1,13 +1,18 @@
+// no docs
+// no comments
+// no error handlings
+// no variable name edit
 use crate::record::schema::Schema;
 use std::sync::Arc;
+use std::sync::Mutex;
 
 pub struct CreateTableData {
     tblname: String,
-    sch: Arc<Schema>,
+    sch: Arc<Mutex<Schema>>,
 }
 
 impl CreateTableData {
-    pub fn new(tblname: String, sch: Arc<Schema>) -> Self {
+    pub fn new(tblname: String, sch: Arc<Mutex<Schema>>) -> Self {
         Self { tblname, sch }
     }
 
@@ -15,7 +20,7 @@ impl CreateTableData {
         &self.tblname
     }
 
-    pub fn new_schema(&self) -> Arc<Schema> {
+    pub fn new_schema(&self) -> Arc<Mutex<Schema>> {
         self.sch.clone()
     }
 }

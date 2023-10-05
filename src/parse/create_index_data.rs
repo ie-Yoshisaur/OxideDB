@@ -1,3 +1,7 @@
+// no docs
+// no comments
+// no error handlings
+// no variable name edit
 pub struct CreateIndexData {
     idxname: String,
     tblname: String,

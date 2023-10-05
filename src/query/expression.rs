@@ -3,7 +3,11 @@ use crate::query::scan::Scan;
 use crate::record::schema::Schema;
 use std::sync::{Arc, Mutex};
 
-#[derive(Clone)]
+// no docs
+// no comments
+// no error handlings
+// no variable name edit
+#[derive(Clone, Debug)]
 pub enum Expression {
     Constant(Constant),
     FieldName(String),
@@ -13,7 +17,7 @@ impl Expression {
     pub fn evaluate(&self, s: Arc<Mutex<dyn Scan>>) -> Constant {
         match self {
             Self::Constant(val) => val.clone(),
-            Self::FieldName(fldname) => s.lock().unwrap().get_val(fldname).unwrap(),
+            Self::FieldName(fldname) => s.lock().unwrap().get_value(fldname).unwrap(),
         }
     }
 
@@ -35,10 +39,10 @@ impl Expression {
         }
     }
 
-    pub fn applies_to(&self, sch: Arc<Schema>) -> bool {
+    pub fn applies_to(&self, sch: Arc<Mutex<Schema>>) -> bool {
         match self {
             Self::Constant(_) => true,
-            Self::FieldName(fldname) => sch.has_field(fldname),
+            Self::FieldName(fldname) => sch.lock().unwrap().has_field(fldname),
         }
     }
 }

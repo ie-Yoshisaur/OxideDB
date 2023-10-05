@@ -1,3 +1,4 @@
+use crate::materialize::sort_scan::SortScan;
 use crate::query::constant::Constant;
 use crate::query::scan::Scan;
 use crate::record::record_id::RecordId;
@@ -5,6 +6,10 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+// no docs
+// no comments
+// no error handlings
+// no variable name edit
 pub struct ProjectScan {
     s: Arc<Mutex<dyn Scan>>,
     fieldlist: HashSet<String>,
@@ -41,9 +46,9 @@ impl ProjectScan {
         }
     }
 
-    pub fn get_val(&self, fldname: &str) -> Option<Constant> {
+    pub fn get_value(&self, fldname: &str) -> Option<Constant> {
         if self.has_field(fldname) {
-            self.s.lock().unwrap().get_val(fldname)
+            self.s.lock().unwrap().get_value(fldname)
         } else {
             panic!("field {} not found.", fldname);
         }
@@ -75,8 +80,8 @@ impl Scan for ProjectScan {
         self.get_string(fldname)
     }
 
-    fn get_val(&self, fldname: &str) -> Option<Constant> {
-        self.get_val(fldname)
+    fn get_value(&self, fldname: &str) -> Option<Constant> {
+        self.get_value(fldname)
     }
 
     fn has_field(&self, fldname: &str) -> bool {
@@ -88,7 +93,7 @@ impl Scan for ProjectScan {
     }
 
     // For Update
-    fn set_val(&mut self, fldname: &str, val: Constant) {
+    fn set_value(&mut self, fldname: &str, val: Constant) {
         unimplemented!()
     }
 
@@ -108,11 +113,15 @@ impl Scan for ProjectScan {
         unimplemented!()
     }
 
-    fn get_rid(&self) -> RecordId {
+    fn get_record_id(&self) -> RecordId {
         unimplemented!()
     }
 
-    fn move_to_rid(&mut self, rid: RecordId) {
+    fn move_to_record_id(&mut self, record_id: RecordId) {
         unimplemented!()
+    }
+
+    fn as_sort_scan(&self) -> Option<SortScan> {
+        None
     }
 }

@@ -1,6 +1,8 @@
 mod buffer;
 mod file;
+mod index;
 mod log;
+mod materialize;
 mod metadata;
 mod parse;
 mod plan;

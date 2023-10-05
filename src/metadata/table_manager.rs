@@ -33,19 +33,19 @@ impl TableManager {
         is_new: bool,
         transaction: Arc<Mutex<Transaction>>,
     ) -> Result<Self, TableManagerError> {
-        let table_catalog_schema = Arc::new({
+        let table_catalog_schema = Arc::new(Mutex::new({
             let mut schema = Schema::new();
             schema.add_string_field("table_name".to_string(), MAX_NAME);
             schema.add_int_field("slot_size".to_string());
             schema
-        });
+        }));
 
         let table_catalog_layout = Arc::new(
             Layout::new(table_catalog_schema.clone())
                 .map_err(|e| TableManagerError::LayoutError(e))?,
         );
 
-        let field_catalog_schema = Arc::new({
+        let field_catalog_schema = Arc::new(Mutex::new({
             let mut schema = Schema::new();
             schema.add_string_field("table_name".to_string(), MAX_NAME);
             schema.add_string_field("field_name".to_string(), MAX_NAME);
@@ -53,7 +53,7 @@ impl TableManager {
             schema.add_int_field("length".to_string());
             schema.add_int_field("offset".to_string());
             schema
-        });
+        }));
 
         let field_catalog_layout = Arc::new(
             Layout::new(field_catalog_schema.clone())
@@ -97,9 +97,9 @@ impl TableManager {
     /// # Returns
     ///
     /// A result containing either `()` on successful execution or an error.
-    fn create_table(
+    pub fn create_table(
         table_name: &str,
-        schema: Arc<Schema>,
+        schema: Arc<Mutex<Schema>>,
         table_catalog_layout: Arc<Layout>,
         field_catalog_layout: Arc<Layout>,
         transaction: Arc<Mutex<Transaction>>,
@@ -131,7 +131,9 @@ impl TableManager {
         )
         .map_err(|e| TableManagerError::TableScanError(e))?;
 
-        for field_name in schema.get_fields().iter() {
+        let schema_guard = schema.lock().unwrap();
+        let fields = schema_guard.get_fields();
+        for field_name in fields.iter() {
             field_catalog
                 .insert()
                 .map_err(|e| TableManagerError::TableScanError(e))?;
@@ -144,7 +146,7 @@ impl TableManager {
             field_catalog
                 .set_int(
                     "type",
-                    schema
+                    schema_guard
                         .get_field_type(field_name)
                         .ok_or(TableManagerError::FieldNotFoundError)? as i32,
                 )
@@ -152,7 +154,7 @@ impl TableManager {
             field_catalog
                 .set_int(
                     "length",
-                    schema
+                    schema_guard
                         .get_length(field_name)
                         .ok_or(TableManagerError::FieldNotFoundError)? as i32,
                 )
@@ -184,7 +186,7 @@ impl TableManager {
     pub fn create_table_from_table_manager(
         &self,
         table_name: &str,
-        schema: Arc<Schema>,
+        schema: Arc<Mutex<Schema>>,
         transaction: Arc<Mutex<Transaction>>,
     ) -> Result<(), TableManagerError> {
         Self::create_table(
@@ -272,7 +274,7 @@ impl TableManager {
                 schema.add_field(field_name, field_type, field_length as usize);
             }
         }
-        let schema = Arc::new(schema);
+        let schema = Arc::new(Mutex::new(schema));
         field_catalog.close();
         Ok(Layout::new_from_metadata(schema, offsets, size as usize))
     }

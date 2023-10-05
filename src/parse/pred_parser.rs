@@ -1,6 +1,10 @@
+// no docs
+// no comments
+// no error handlings
+// no variable name edit
 use crate::parse::lexer::Lexer;
 
-struct PredParser<'a> {
+pub struct PredParser<'a> {
     lex: Lexer<'a>,
 }
 

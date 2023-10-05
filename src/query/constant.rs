@@ -1,10 +1,18 @@
+use std::cmp::Ordering;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::Hash;
+use std::hash::Hasher;
+
+// no docs
+// no comments
+// no error handlings
+// no variable name edit
 /// Represents a constant value stored in the database.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Constant {
     Int(i32),
     Str(String),
 }
-
 impl Constant {
     /// Convert the Constant to an integer.
     /// Panics if the Constant is not an integer.
@@ -28,12 +36,18 @@ impl Constant {
 
     /// Compares two Constant values.
     /// Returns an `Option<Ordering>` that depends on the values being compared.
-    pub fn compare(&self, other: &Constant) -> Option<std::cmp::Ordering> {
+    pub fn compare(&self, other: &Constant) -> Option<Ordering> {
         match (self, other) {
             (Constant::Int(a), Constant::Int(b)) => Some(a.cmp(b)),
             (Constant::Str(a), Constant::Str(b)) => Some(a.cmp(b)),
             _ => None, // Incomparable types
         }
+    }
+
+    pub fn hash_code(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        hasher.finish()
     }
 }
 

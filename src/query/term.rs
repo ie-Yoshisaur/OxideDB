@@ -5,7 +5,11 @@ use crate::query::scan::Scan;
 use crate::record::schema::Schema;
 use std::sync::{Arc, Mutex};
 
-#[derive(Clone)]
+// no docs
+// no comments
+// no error handlings
+// no variable name edit
+#[derive(Clone, Debug)]
 pub struct Term {
     lhs: Expression,
     rhs: Expression,
@@ -72,7 +76,7 @@ impl Term {
         None
     }
 
-    pub fn applies_to(&self, sch: Arc<Schema>) -> bool {
+    pub fn applies_to(&self, sch: Arc<Mutex<Schema>>) -> bool {
         self.lhs.applies_to(sch.clone()) && self.rhs.applies_to(sch.clone())
     }
 }

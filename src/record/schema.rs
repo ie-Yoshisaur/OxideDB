@@ -1,6 +1,6 @@
 use crate::record::field_type::FieldType;
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, MutexGuard};
 
 /// Information about a field, including its type and length.
 #[derive(Debug, Clone)]
@@ -76,14 +76,14 @@ impl Schema {
         self.add_field(field_name, FieldType::VarChar, length);
     }
 
-    /// Adds a field to the schema based on another schema.
+    /// Adds a field to the schema based on another schema's locked guard.
     ///
     /// # Arguments
     ///
     /// * `field_name` - The name of the field.
-    /// * `schema` - The other schema.
-    pub fn add(&mut self, field_name: String, schema: Arc<Schema>) {
-        if let Some(field_info) = schema.info.get(&field_name) {
+    /// * `schema_guard` - The locked guard of the other schema.
+    pub fn add(&mut self, field_name: String, schema_guard: &MutexGuard<Schema>) {
+        if let Some(field_info) = schema_guard.info.get(&field_name) {
             self.add_field(field_name, field_info.field_type.clone(), field_info.length);
         }
     }
@@ -93,9 +93,10 @@ impl Schema {
     /// # Arguments
     ///
     /// * `schema` - The other schema.
-    pub fn add_all(&mut self, schema: Arc<Schema>) {
-        for field_name in &schema.fields {
-            self.add(field_name.clone(), schema.clone());
+    pub fn add_all(&mut self, schema: Arc<Mutex<Schema>>) {
+        let schema_guard = schema.lock().unwrap();
+        for field_name in &schema_guard.fields {
+            self.add(field_name.clone(), &schema_guard);
         }
     }
 

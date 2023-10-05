@@ -1,4 +1,5 @@
 pub mod err;
+pub mod index_information;
 pub mod index_manager;
 pub mod metadata_manager;
 pub mod statistics_information;

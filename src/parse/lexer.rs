@@ -1,3 +1,7 @@
+// no docs
+// no comments
+// no error handlings
+// no variable name edit
 use crate::parse::stream_tokenizer::StreamTokenizer;
 use crate::parse::stream_tokenizer::Token;
 use std::collections::HashSet;

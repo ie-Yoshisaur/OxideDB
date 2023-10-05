@@ -1,3 +1,7 @@
+// no docs
+// no comments
+// no error handlings
+// no variable name edit
 use crate::query::expression::Expression;
 use crate::query::predicate::Predicate;
 

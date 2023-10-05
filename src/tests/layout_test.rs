@@ -2,13 +2,13 @@ use crate::record::err::LayoutError;
 use crate::record::layout::Layout;
 use crate::record::schema::Schema;
 use std::backtrace::Backtrace;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 /// Tests the layout creation and offset calculation in `Layout`.
 ///
 /// This test does the following:
 /// - Creates a new Schema instance and adds an integer field "A" and a string field "B" with length 9.
-/// - Wraps the schema in an Arc and creates a new Layout instance.
+/// - Wraps the schema in an Arc<Mutex<>> and creates a new Layout instance.
 /// - Initializes a HashMap to store the offsets of the fields.
 /// - Iterates through the schema fields to get their offsets and stores them in the HashMap.
 /// - Checks if the offsets are correctly calculated by asserting their expected values.
@@ -19,8 +19,7 @@ fn layout_test() -> Result<(), Box<dyn std::error::Error>> {
     schema.add_int_field("A".to_string());
     schema.add_string_field("B".to_string(), 9);
 
-    // Wrap the schema in an Arc and create a new Layout.
-    let schema = Arc::new(schema);
+    let schema = Arc::new(Mutex::new(schema));
     let layout = Layout::new(schema).map_err(|e| {
         eprintln!(
             "Layout creation failed.\nBacktrace: {:#?}",
@@ -33,7 +32,7 @@ fn layout_test() -> Result<(), Box<dyn std::error::Error>> {
     let mut offsets = std::collections::HashMap::new();
 
     // Iterate through the schema fields to get their offsets.
-    for field_name in layout.get_schema().get_fields() {
+    for field_name in layout.get_schema().lock().unwrap().get_fields() {
         let offset = layout.get_offset(&field_name).ok_or_else(|| {
             eprintln!("Field not found.\nBacktrace: {:#?}", Backtrace::capture());
             LayoutError::FieldNotFoundError

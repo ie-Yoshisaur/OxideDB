@@ -1,3 +1,7 @@
+// no docs
+// no comments
+// no error handlings
+// no variable name edit
 use crate::metadata::metadata_manager::MetadataManager;
 use crate::metadata::statistics_information::StatisticsInformation;
 use crate::plan::plan::Plan;
@@ -19,11 +23,10 @@ impl TablePlan {
     // Creates a leaf node in the query tree corresponding
     // to the specified table.
     pub fn new(tx: Arc<Mutex<Transaction>>, tblname: String, md: Arc<MetadataManager>) -> Self {
-        let layout = md.get_layout(&tblname, tx.clone()).unwrap();
+        let layout = Arc::new(md.get_layout(&tblname, tx.clone()).unwrap());
         let si = md
-            .get_stat_info(&tblname, layout.clone(), tx.clone())
+            .get_statistics_information(&tblname, layout.clone(), tx.clone())
             .unwrap();
-        let layout = Arc::new(layout);
         Self {
             tblname,
             tx,
@@ -35,7 +38,7 @@ impl TablePlan {
 
 impl Plan for TablePlan {
     // Creates a table scan for this query.
-    fn open(&self) -> Arc<Mutex<dyn Scan>> {
+    fn open(&mut self) -> Arc<Mutex<dyn Scan>> {
         Arc::new(Mutex::new(
             TableScan::new(self.tx.clone(), &self.tblname, self.layout.clone()).unwrap(),
         ))
@@ -61,7 +64,7 @@ impl Plan for TablePlan {
 
     // Determines the schema of the table,
     // which is obtainable from the catalog manager.
-    fn schema(&self) -> Arc<Schema> {
+    fn schema(&self) -> Arc<Mutex<Schema>> {
         self.layout.get_schema()
     }
 }

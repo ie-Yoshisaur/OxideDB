@@ -1,5 +1,7 @@
+use std::fmt;
+
 /// Represents the type of a field in a schema.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum FieldType {
     /// Represents an integer field.
     ///
@@ -21,6 +23,16 @@ impl FieldType {
             4 => Some(FieldType::Integer),
             12 => Some(FieldType::VarChar),
             _ => None,
+        }
+    }
+}
+
+impl fmt::Display for FieldType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Match each enum variant to its displayable string
+        match self {
+            FieldType::Integer => write!(f, "int"),
+            FieldType::VarChar => write!(f, "varchar"),
         }
     }
 }
