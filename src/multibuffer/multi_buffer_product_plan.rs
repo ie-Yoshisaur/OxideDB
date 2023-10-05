@@ -80,7 +80,7 @@ impl MultibufferProductPlan {
         let mut p_guard = p.lock().unwrap();
         let src = p_guard.open();
         let sch = p_guard.schema();
-        drop(p_guard); // explicitly drop the lock guard to release the lock
+        drop(p_guard);
 
         let temp_table = TemporaryTable::new(self.tx.clone(), sch.clone());
         let dest = temp_table.open();
@@ -90,7 +90,7 @@ impl MultibufferProductPlan {
         while src_guard.next() {
             dest.lock().unwrap().insert();
             for fldname in sch_guard.get_fields() {
-                let val = src_guard.get_value(&fldname).unwrap(); // Assuming get_value returns an Option
+                let val = src_guard.get_value(&fldname).unwrap();
                 dest.lock().unwrap().set_value(&fldname, val);
             }
         }

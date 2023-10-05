@@ -193,11 +193,8 @@ impl<'a> Parser<'a> {
         self.lex.eat_keyword("table");
         let tblname = self.lex.eat_id();
         self.lex.eat_delim('(');
-        println!("create_table!");
         let schema = Arc::new(Mutex::new(self.field_defs()));
-        println!("create_table");
         self.lex.eat_delim(')');
-        println!("create_table");
         CreateTableData::new(tblname, schema)
     }
 
