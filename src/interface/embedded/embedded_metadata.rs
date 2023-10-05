@@ -63,6 +63,6 @@ impl EmbeddedMetadata {
                 .unwrap()
         };
 
-        Ok(std::cmp::max(field_name.len(), field_length) + 1)
+        Ok(std::cmp::max(field_name.len(), field_length) + 10)
     }
 }
