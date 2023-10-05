@@ -3,6 +3,7 @@ use crate::query::constant::Constant;
 use crate::query::predicate::Predicate;
 use crate::query::scan::Scan;
 use crate::record::record_id::RecordId;
+use crate::record::table_scan::TableScan;
 use std::sync::{Arc, Mutex};
 
 // no docs
@@ -142,6 +143,10 @@ impl Scan for SelectScan {
     }
 
     fn as_sort_scan(&self) -> Option<SortScan> {
+        None
+    }
+
+    fn as_table_scan(&self) -> Option<TableScan> {
         None
     }
 }

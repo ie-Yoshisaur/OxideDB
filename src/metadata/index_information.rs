@@ -11,6 +11,7 @@ use std::sync::{Arc, Mutex};
 // no comments
 // no error handlings
 // no variable name edit
+#[derive(Clone)]
 pub struct IndexInformation {
     index_name: String,
     field_name: String,
@@ -39,12 +40,12 @@ impl IndexInformation {
         }
     }
 
-    pub fn open(&self) -> Box<dyn Index> {
-        Box::new(BTreeIndex::new(
+    pub fn open(&self) -> Arc<Mutex<dyn Index>> {
+        Arc::new(Mutex::new(BTreeIndex::new(
             self.transaction.clone(),
             &self.index_name,
             self.index_layout.clone(),
-        ))
+        )))
     }
 
     pub fn blocks_accessed(&self) -> i32 {

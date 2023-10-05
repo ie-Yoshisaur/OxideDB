@@ -2,6 +2,7 @@ use crate::materialize::sort_scan::SortScan;
 use crate::query::constant::Constant;
 use crate::query::scan::Scan;
 use crate::record::record_id::RecordId;
+use crate::record::table_scan::TableScan;
 use std::cmp::Ordering;
 use std::sync::{Arc, Mutex};
 
@@ -156,6 +157,10 @@ impl Scan for MergeJoinScan {
     }
 
     fn as_sort_scan(&self) -> Option<SortScan> {
+        None
+    }
+
+    fn as_table_scan(&self) -> Option<TableScan> {
         None
     }
 }

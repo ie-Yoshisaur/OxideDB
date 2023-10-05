@@ -10,6 +10,7 @@ pub const EMPTY: i32 = 0;
 pub const USED: i32 = 1;
 
 /// Manages the storage of records within a block.
+#[derive(Clone)]
 pub struct RecordPage {
     transaction: Arc<Mutex<Transaction>>,
     block: BlockId,

@@ -11,6 +11,7 @@ use crate::transaction::transaction::Transaction;
 use std::sync::{Arc, Mutex};
 
 // TableScan provides methods for scanning a table.
+#[derive(Clone)]
 pub struct TableScan {
     transaction: Arc<Mutex<Transaction>>,
     layout: Arc<Layout>,
@@ -416,5 +417,9 @@ impl Scan for TableScan {
 
     fn as_sort_scan(&self) -> Option<SortScan> {
         None
+    }
+
+    fn as_table_scan(&self) -> Option<TableScan> {
+        Some(self.clone())
     }
 }

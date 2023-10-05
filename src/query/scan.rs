@@ -1,6 +1,7 @@
 use crate::materialize::sort_scan::SortScan;
 use crate::query::constant::Constant;
 use crate::record::record_id::RecordId;
+use crate::record::table_scan::TableScan;
 
 // no docs
 // no comments
@@ -24,6 +25,7 @@ pub trait Scan {
     fn get_record_id(&self) -> RecordId;
     fn move_to_record_id(&mut self, record_id: RecordId);
 
-    //Cast
+    // Cast
     fn as_sort_scan(&self) -> Option<SortScan>;
+    fn as_table_scan(&self) -> Option<TableScan>;
 }

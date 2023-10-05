@@ -2,6 +2,7 @@ use crate::materialize::sort_scan::SortScan;
 use crate::query::constant::Constant;
 use crate::query::scan::Scan;
 use crate::record::record_id::RecordId;
+use crate::record::table_scan::TableScan;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -122,6 +123,10 @@ impl Scan for ProjectScan {
     }
 
     fn as_sort_scan(&self) -> Option<SortScan> {
+        None
+    }
+
+    fn as_table_scan(&self) -> Option<TableScan> {
         None
     }
 }

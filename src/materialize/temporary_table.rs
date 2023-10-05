@@ -36,9 +36,8 @@ impl TemporaryTable {
         &self.tblname
     }
 
-    // Return the table's metadata.
-    pub fn get_layout(&self) -> &Layout {
-        &self.layout
+    pub fn get_layout(&self) -> Arc<Layout> {
+        self.layout.clone()
     }
 }
 

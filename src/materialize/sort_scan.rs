@@ -3,6 +3,7 @@ use crate::materialize::temporary_table::TemporaryTable;
 use crate::query::constant::Constant;
 use crate::query::scan::Scan;
 use crate::record::record_id::RecordId;
+use crate::record::table_scan::TableScan;
 use std::cmp::Ordering;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
@@ -208,5 +209,9 @@ impl Scan for SortScan {
 
     fn as_sort_scan(&self) -> Option<SortScan> {
         Some(self.clone())
+    }
+
+    fn as_table_scan(&self) -> Option<TableScan> {
+        None
     }
 }

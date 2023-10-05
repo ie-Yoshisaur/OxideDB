@@ -4,6 +4,8 @@ mod index;
 mod log;
 mod materialize;
 mod metadata;
+mod multibuffer;
+mod opt;
 mod parse;
 mod plan;
 mod query;
