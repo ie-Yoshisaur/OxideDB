@@ -14,7 +14,7 @@ fn planner_test2() -> Result<(), Box<dyn std::error::Error>> {
 
     // Creating table T1
     let cmd1 = "create table T1(A int, B varchar(9))";
-    planner.execute_update(cmd1, tx.clone());
+    planner.lock().unwrap().execute_update(cmd1, tx.clone());
 
     let n = 200;
     println!("Inserting {} records into T1.", n);
@@ -22,24 +22,24 @@ fn planner_test2() -> Result<(), Box<dyn std::error::Error>> {
         let a = i;
         let b = format!("bbb{}", a);
         let cmd = format!("insert into T1(A,B) values({}, '{}')", a, b);
-        planner.execute_update(&cmd, tx.clone());
+        planner.lock().unwrap().execute_update(&cmd, tx.clone());
     }
 
     // Creating table T2
     let cmd2 = "create table T2(C int, D varchar(9))";
-    planner.execute_update(cmd2, tx.clone());
+    planner.lock().unwrap().execute_update(cmd2, tx.clone());
 
     println!("Inserting {} records into T2.", n);
     for i in 0..n {
         let c = n - i - 1;
         let d = format!("ddd{}", c);
         let cmd = format!("insert into T2(C,D) values({}, '{}')", c, d);
-        planner.execute_update(&cmd, tx.clone());
+        planner.lock().unwrap().execute_update(&cmd, tx.clone());
     }
 
     // Querying
     let qry = "select B,D from T1,T2 where A=C";
-    let plan = planner.create_query_plan(qry, tx.clone());
+    let plan = planner.lock().unwrap().create_query_plan(qry, tx.clone());
 
     let scan = plan.lock().unwrap().open();
     let mut scan = scan.lock().unwrap();

@@ -21,7 +21,7 @@ pub struct OxideDB {
     buffer_manager: Arc<Mutex<BufferManager>>,
     lock_table: Arc<Mutex<LockTable>>,
     metadata_manager: Option<Arc<MetadataManager>>,
-    planner: Option<Arc<Planner>>,
+    planner: Option<Arc<Mutex<Planner>>>,
 }
 
 impl OxideDB {
@@ -82,7 +82,10 @@ impl OxideDB {
         let query_planner = Arc::new(BasicQueryPlanner::new(metadata_manager.clone()));
         let update_planner = Arc::new(BasicUpdatePlanner::new(metadata_manager));
 
-        oxide_db.planner = Some(Arc::new(Planner::new(query_planner, update_planner))); // Assuming Planner is defined
+        oxide_db.planner = Some(Arc::new(Mutex::new(Planner::new(
+            query_planner,
+            update_planner,
+        ))));
 
         transaction.lock().unwrap().commit()?;
 
@@ -109,7 +112,7 @@ impl OxideDB {
         &mut self.metadata_manager
     }
 
-    pub fn get_planner(&mut self) -> &mut Option<Arc<Planner>> {
+    pub fn get_planner(&mut self) -> &mut Option<Arc<Mutex<Planner>>> {
         &mut self.planner
     }
 

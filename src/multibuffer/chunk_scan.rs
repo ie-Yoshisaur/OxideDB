@@ -36,7 +36,7 @@ impl ChunkScan {
             let blk = BlockId::new(filename.clone(), i);
             buffs.push_back(RecordPage::new(tx.clone(), blk, layout.clone()));
         }
-        let rp = buffs[0].clone(); // assuming non-empty buffers
+        let rp = buffs[0].clone();
         Self {
             buffs,
             tx,
@@ -128,7 +128,8 @@ impl Scan for ChunkScan {
         self.has_field(field_name)
     }
     fn close(&mut self) {
-        self.close() }
+        self.close()
+    }
 
     fn set_value(&mut self, field_name: &str, value: Constant) {
         unimplemented!()

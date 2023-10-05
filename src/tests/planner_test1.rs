@@ -12,7 +12,7 @@ fn planner_test1() -> Result<(), Box<dyn std::error::Error>> {
 
     let planner = db.get_planner().as_ref().unwrap();
     let cmd = "create table T1(A int, B varchar(9))";
-    planner.execute_update(cmd, tx.clone());
+    planner.lock().unwrap().execute_update(cmd, tx.clone());
 
     let n = 200;
     println!("Inserting {} sequential records.", n);
@@ -22,12 +22,12 @@ fn planner_test1() -> Result<(), Box<dyn std::error::Error>> {
             let a = i;
             let b = format!("rec{}", a);
             let cmd = format!("insert into T1(A,B) values({}, '{}')", a, b);
-            planner.execute_update(&cmd, tx.clone());
+            planner.lock().unwrap().execute_update(&cmd, tx.clone());
         }
     }
 
     let qry = "select B from T1 where A=10";
-    let plan = planner.create_query_plan(qry, tx.clone());
+    let plan = planner.lock().unwrap().create_query_plan(qry, tx.clone());
 
     let scan = plan.lock().unwrap().open();
     let mut scan = scan.lock().unwrap();
