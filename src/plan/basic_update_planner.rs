@@ -94,15 +94,15 @@ impl BasicUpdatePlanner {
         0
     }
 
-    // pub fn execute_create_index(
-    //     &self,
-    //     data: CreateIndexData,
-    //     tx: Arc<Mutex<Transaction>>,
-    // ) -> usize {
-    //     self.mdm
-    //         .create_index(data.index_name(), data.table_name(), data.field_name(), tx);
-    //     0
-    // }
+    pub fn execute_create_index(
+        &self,
+        data: CreateIndexData,
+        tx: Arc<Mutex<Transaction>>,
+    ) -> usize {
+        self.mdm
+            .create_index(data.index_name(), data.table_name(), data.field_name(), tx);
+        0
+    }
 }
 
 impl UpdatePlanner for BasicUpdatePlanner {
@@ -126,7 +126,7 @@ impl UpdatePlanner for BasicUpdatePlanner {
         self.execute_create_view(data, tx)
     }
 
-    fn execute_create_index(&self, _data: CreateIndexData, _tx: Arc<Mutex<Transaction>>) -> usize {
-        unimplemented!()
+    fn execute_create_index(&self, data: CreateIndexData, tx: Arc<Mutex<Transaction>>) -> usize {
+        self.execute_create_index(data, tx)
     }
 }
