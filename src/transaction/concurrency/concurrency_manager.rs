@@ -47,7 +47,7 @@ impl ConcurrencyManager {
     /// * `Result<(), ConcurrencyError>` - Result of the operation.
     pub fn s_lock(&mut self, block: BlockId) -> Result<(), ConcurrencyError> {
         if !self.locks.contains_key(&block) {
-            let mut locked_lock_table = self.lock_table.lock().unwrap();
+            let locked_lock_table = self.lock_table.lock().unwrap();
             locked_lock_table
                 .s_lock(block.clone())
                 .map_err(|_| ConcurrencyError::LockAbortError)?;
@@ -69,33 +69,18 @@ impl ConcurrencyManager {
     ///
     /// * `Result<(), ConcurrencyError>` - Result of the operation.
     pub fn x_lock(&mut self, block: BlockId) -> Result<(), ConcurrencyError> {
-        let start_time = Instant::now();
-        let timeout = Duration::from_millis(10000); // 10 seconds
-
-        loop {
-            {
-                let mut locked_lock_table = self.lock_table.lock().unwrap();
-                if !locked_lock_table.has_other_s_locks(&block) {
-                    locked_lock_table
-                        .x_lock(block.clone())
-                        .map_err(|_| ConcurrencyError::LockAbortError)?;
-                    self.locks.insert(block.clone(), LockType::Exclusive);
-                    return Ok(());
-                }
-            }
-
-            if Instant::now().duration_since(start_time) > timeout {
-                return Err(ConcurrencyError::LockAbortError);
-            }
-
-            thread::sleep(Duration::from_millis(100));
+        if !self.has_x_lock(&block) {
+            self.s_lock(block.clone())
+                .map_err(|_| ConcurrencyError::LockAbortError)?;
+            self.locks.insert(block, LockType::Exclusive);
         }
+        Ok(())
     }
 
     /// Releases all locks by asking the lock table to unlock each one.
     pub fn release(&mut self) {
         for block in self.locks.keys().cloned().collect::<Vec<BlockId>>() {
-            let mut locked_lock_table = self.lock_table.lock().unwrap();
+            let locked_lock_table = self.lock_table.lock().unwrap();
             locked_lock_table.unlock(block);
         }
         self.locks.clear();
