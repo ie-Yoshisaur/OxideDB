@@ -106,13 +106,13 @@ impl ConcurrencyManager {
 
     /// Releases all locks by asking the lock table to unlock each one.
     pub fn release(&mut self) {
-        let (lock, cvar) = &*self.lock_table;
+        let (lock, condvar) = &*self.lock_table;
         let mut lock_table = lock.lock().unwrap();
         for block in self.locks.keys().cloned().collect::<Vec<BlockId>>() {
             lock_table.unlock(block);
         }
         self.locks.clear();
-        cvar.notify_all();
+        condvar.notify_all();
     }
 
     /// Checks if the transaction has an XLock on the specified block.
