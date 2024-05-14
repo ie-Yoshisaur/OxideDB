@@ -5,6 +5,7 @@ use std::fmt;
 #[derive(Debug)]
 pub enum ConcurrencyError {
     LockAbortError,
+    Timeout,
 }
 
 impl fmt::Display for ConcurrencyError {
@@ -12,6 +13,9 @@ impl fmt::Display for ConcurrencyError {
         match self {
             ConcurrencyError::LockAbortError => {
                 write!(f, "Failed to acquire X lock within the time limit")
+            }
+            ConcurrencyError::Timeout => {
+                write!(f, "Failed to acquire S lock within the time limit")
             }
         }
     }
@@ -27,6 +31,7 @@ impl Error for ConcurrencyError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             ConcurrencyError::LockAbortError => None,
+            ConcurrencyError::Timeout => None,
         }
     }
 }
