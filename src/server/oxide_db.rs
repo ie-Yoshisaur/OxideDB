@@ -8,6 +8,7 @@ use crate::plan::planner::Planner;
 use crate::transaction::concurrency::lock_table::LockTable;
 use crate::transaction::transaction::Transaction;
 use std::path::PathBuf;
+use std::sync::Condvar;
 use std::sync::{Arc, Mutex};
 
 const LOG_FILE: &str = "oxidedb.log";
@@ -19,7 +20,7 @@ pub struct OxideDB {
     file_manager: Arc<Mutex<FileManager>>,
     log_manager: Arc<Mutex<LogManager>>,
     buffer_manager: Arc<Mutex<BufferManager>>,
-    lock_table: Arc<Mutex<LockTable>>,
+    lock_table: Arc<(Mutex<LockTable>, Condvar)>,
     metadata_manager: Option<Arc<MetadataManager>>,
     planner: Option<Arc<Mutex<Planner>>>,
 }
@@ -47,7 +48,7 @@ impl OxideDB {
             BufferManager::new(file_manager.clone(), log_manager.clone(), buffer_size).unwrap(),
         ));
 
-        let lock_table = Arc::new(Mutex::new(LockTable::new()));
+        let lock_table = Arc::new((Mutex::new(LockTable::new()), Condvar::new()));
 
         OxideDB {
             block_size,
@@ -104,7 +105,7 @@ impl OxideDB {
         &self.buffer_manager
     }
 
-    pub fn get_lock_table(&self) -> &Arc<Mutex<LockTable>> {
+    pub fn get_lock_table(&self) -> &Arc<(Mutex<LockTable>, Condvar)> {
         &self.lock_table
     }
 

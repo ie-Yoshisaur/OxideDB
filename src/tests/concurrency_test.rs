@@ -60,8 +60,8 @@ fn concurrency_test() {
                             Backtrace::capture()
                         ),
                     );
-                let block1 = BlockId::new("testfile".to_string().to_string(), 1);
-                let block2 = BlockId::new("testfile".to_string().to_string(), 2);
+                let block1 = BlockId::new("testfile".to_string(), 1);
+                let block2 = BlockId::new("testfile".to_string(), 2);
                 transaction_a.pin(block1.clone());
                 transaction_a.pin(block2.clone());
                 println!("Transaction A: request slock 1");

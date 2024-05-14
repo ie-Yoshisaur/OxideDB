@@ -2,9 +2,12 @@ use crate::file::block_id::BlockId;
 use crate::transaction::concurrency::err::ConcurrencyError;
 use crate::transaction::concurrency::lock_table::LockTable;
 use std::collections::HashMap;
+use std::sync::Condvar;
 use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+use std::time::Instant;
+
+const MAX_TIME: Duration = Duration::from_secs(10);
 
 #[derive(Debug, PartialEq, Eq)]
 enum LockType {
@@ -17,7 +20,7 @@ enum LockType {
 /// The concurrency manager keeps track of which locks the transaction currently has,
 /// and interacts with the global lock table as needed.
 pub struct ConcurrencyManager {
-    lock_table: Arc<Mutex<LockTable>>,
+    lock_table: Arc<(Mutex<LockTable>, Condvar)>,
     locks: HashMap<BlockId, LockType>,
 }
 
@@ -27,7 +30,7 @@ impl ConcurrencyManager {
     /// # Arguments
     ///
     /// * `lock_table` - The global lock table shared among all transactions.
-    pub fn new(lock_table: Arc<Mutex<LockTable>>) -> Self {
+    pub fn new(lock_table: Arc<(Mutex<LockTable>, Condvar)>) -> Self {
         Self {
             lock_table,
             locks: HashMap::new(),
@@ -46,13 +49,21 @@ impl ConcurrencyManager {
     ///
     /// * `Result<(), ConcurrencyError>` - Result of the operation.
     pub fn s_lock(&mut self, block: BlockId) -> Result<(), ConcurrencyError> {
-        if !self.locks.contains_key(&block) {
-            let locked_lock_table = self.lock_table.lock().unwrap();
-            locked_lock_table
-                .s_lock(block.clone())
-                .map_err(|_| ConcurrencyError::LockAbortError)?;
-            self.locks.insert(block, LockType::Shared);
+        let (lock, condvar) = &*self.lock_table;
+        let mut lock_table = lock.lock().unwrap();
+        let start_time = Instant::now();
+
+        while lock_table.has_x_lock(&block) {
+            let result = condvar.wait_timeout(lock_table, MAX_TIME).unwrap();
+            lock_table = result.0;
+
+            if self.waiting_too_long(start_time) {
+                return Err(ConcurrencyError::Timeout);
+            }
         }
+
+        lock_table.s_lock(block.clone()).unwrap();
+        self.locks.insert(block, LockType::Shared);
         Ok(())
     }
 
@@ -70,8 +81,21 @@ impl ConcurrencyManager {
     /// * `Result<(), ConcurrencyError>` - Result of the operation.
     pub fn x_lock(&mut self, block: BlockId) -> Result<(), ConcurrencyError> {
         if !self.has_x_lock(&block) {
-            self.s_lock(block.clone())
-                .map_err(|_| ConcurrencyError::LockAbortError)?;
+            let (lock, cvar) = &*self.lock_table;
+            let mut lock_table = lock.lock().unwrap();
+            lock_table.s_lock(block.clone()).unwrap();
+            let start_time = Instant::now();
+
+            while lock_table.has_other_s_locks(&block) {
+                let result = cvar.wait_timeout(lock_table, MAX_TIME).unwrap();
+                lock_table = result.0;
+
+                if self.waiting_too_long(start_time) {
+                    return Err(ConcurrencyError::Timeout);
+                }
+            }
+
+            lock_table.x_lock(block.clone()).unwrap();
             self.locks.insert(block, LockType::Exclusive);
         }
         Ok(())
@@ -79,11 +103,13 @@ impl ConcurrencyManager {
 
     /// Releases all locks by asking the lock table to unlock each one.
     pub fn release(&mut self) {
+        let (lock, cvar) = &*self.lock_table;
+        let mut lock_table = lock.lock().unwrap();
         for block in self.locks.keys().cloned().collect::<Vec<BlockId>>() {
-            let locked_lock_table = self.lock_table.lock().unwrap();
-            locked_lock_table.unlock(block);
+            lock_table.unlock(block);
         }
         self.locks.clear();
+        cvar.notify_all();
     }
 
     /// Checks if the transaction has an XLock on the specified block.
@@ -100,5 +126,9 @@ impl ConcurrencyManager {
             Some(LockType::Exclusive) => true,
             _ => false,
         }
+    }
+
+    fn waiting_too_long(&self, start_time: Instant) -> bool {
+        start_time.elapsed() > MAX_TIME
     }
 }

@@ -8,6 +8,7 @@ use crate::transaction::concurrency::lock_table::LockTable;
 use crate::transaction::err::TransactionError;
 use crate::transaction::recovery::recovery_manager::RecoveryManager;
 use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::Condvar;
 use std::sync::{Arc, Mutex};
 
 /// Provides an atomic counter for generating unique transaction numbers.
@@ -47,7 +48,7 @@ impl Transaction {
         file_manager: Arc<Mutex<FileManager>>,
         log_manager: Arc<Mutex<LogManager>>,
         buffer_manager: Arc<Mutex<BufferManager>>,
-        lock_table: Arc<Mutex<LockTable>>,
+        lock_table: Arc<(Mutex<LockTable>, Condvar)>,
     ) -> Result<Self, TransactionError> {
         let transaction_number = NEXT_TRANSACTION_NUM.fetch_add(1, Ordering::SeqCst);
         Ok(Self {

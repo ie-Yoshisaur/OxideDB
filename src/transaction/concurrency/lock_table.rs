@@ -1,26 +1,20 @@
 use crate::file::block_id::BlockId;
 use crate::transaction::concurrency::err::LockAbortError;
 use std::collections::HashMap;
-use std::sync::{Condvar, Mutex};
-use std::time::{Duration, Instant};
-
-const MAX_TIME: Duration = Duration::from_secs(10);
 
 /// The `LockTable` struct manages methods to lock and unlock blocks.
 /// If a transaction requests a lock that causes a conflict with an
 /// existing lock, then that transaction will receive a `LockAbortError`.
 /// There is only one lock table for all blocks.
 pub struct LockTable {
-    locks: Mutex<HashMap<BlockId, i32>>,
-    cvar: Condvar,
+    locks: HashMap<BlockId, i32>,
 }
 
 impl LockTable {
     /// Creates a new `LockTable`.
     pub fn new() -> Self {
         Self {
-            locks: Mutex::new(HashMap::new()),
-            cvar: Condvar::new(),
+            locks: HashMap::new(),
         }
     }
 
@@ -39,17 +33,9 @@ impl LockTable {
     /// # Returns
     ///
     /// * `Result<(), LockAbortError>` - Result of the operation.
-    pub fn s_lock(&self, block: BlockId) -> Result<(), LockAbortError> {
-        let start_time = Instant::now();
-        let mut locks = self.locks.lock().unwrap();
-        while self.has_xlock(&block, &locks) && !self.waiting_too_long(start_time) {
-            locks = self.cvar.wait_timeout(locks, MAX_TIME).unwrap().0;
-        }
-        if self.has_xlock(&block, &locks) {
-            return Err(LockAbortError::Timeout);
-        }
-        let value = self.get_lock_value(&block, &locks);
-        locks.insert(block, value + 1);
+    pub fn s_lock(&mut self, block: BlockId) -> Result<(), LockAbortError> {
+        let value = self.get_lock_value(&block);
+        self.locks.insert(block, value + 1);
         Ok(())
     }
 
@@ -68,16 +54,8 @@ impl LockTable {
     /// # Returns
     ///
     /// * `Result<(), LockAbortError>` - Result of the operation.
-    pub fn x_lock(&self, block: BlockId) -> Result<(), LockAbortError> {
-        let start_time = Instant::now();
-        let mut locks = self.locks.lock().unwrap();
-        while self.has_other_s_locks(&block, &locks) && !self.waiting_too_long(start_time) {
-            locks = self.cvar.wait_timeout(locks, MAX_TIME).unwrap().0;
-        }
-        if self.has_other_s_locks(&block, &locks) {
-            return Err(LockAbortError::Timeout);
-        }
-        locks.insert(block, -1);
+    pub fn x_lock(&mut self, block: BlockId) -> Result<(), LockAbortError> {
+        self.locks.insert(block, -1);
         Ok(())
     }
 
@@ -88,14 +66,12 @@ impl LockTable {
     /// # Arguments
     ///
     /// * `block` - A reference to the disk block.
-    pub fn unlock(&self, block: BlockId) {
-        let mut locks = self.locks.lock().unwrap();
-        let value = self.get_lock_value(&block, &locks);
+    pub fn unlock(&mut self, block: BlockId) {
+        let value = self.get_lock_value(&block);
         if value > 1 {
-            locks.insert(block, value - 1);
+            self.locks.insert(block, value - 1);
         } else {
-            locks.remove(&block);
-            self.cvar.notify_all();
+            self.locks.remove(&block);
         }
     }
 
@@ -109,11 +85,9 @@ impl LockTable {
     /// # Returns
     ///
     /// * `bool` - Whether other SLocks exist or not.
-    fn has_other_s_locks(&self, block: &BlockId, locks: &HashMap<BlockId, i32>) -> bool {
-        match locks.get(block) {
-            Some(&value) => value > 1,
-            None => false,
-        }
+    pub fn has_other_s_locks(&self, block: &BlockId) -> bool {
+        let value = self.get_lock_value(block);
+        value > 1
     }
 
     /// Checks if the specified block has an XLock.
@@ -126,19 +100,9 @@ impl LockTable {
     /// # Returns
     ///
     /// * `bool` - Whether an XLock exists or not.
-    fn has_xlock(&self, block: &BlockId, locks: &HashMap<BlockId, i32>) -> bool {
-        self.get_lock_value(block, locks) < 0
-    }
-
-    /// Checks if the specified block has an SLock.
-    ///
-    /// # Arguments
-    /// * start_time - The time when the transaction started.
-    ///
-    /// # Returns
-    /// * `bool` - Whether the transaction has waited too long or not.
-    fn waiting_too_long(&self, start_time: Instant) -> bool {
-        start_time.elapsed() > MAX_TIME
+    pub fn has_x_lock(&self, block: &BlockId) -> bool {
+        let value = self.get_lock_value(block);
+        value < 0
     }
 
     /// Gets the lock value for the specified block.
@@ -151,8 +115,8 @@ impl LockTable {
     /// # Returns
     ///
     /// * `i32` - The lock value.
-    fn get_lock_value(&self, block: &BlockId, locks: &HashMap<BlockId, i32>) -> i32 {
-        match locks.get(block) {
+    fn get_lock_value(&self, block: &BlockId) -> i32 {
+        match self.locks.get(block) {
             Some(&value) => value,
             None => 0,
         }
