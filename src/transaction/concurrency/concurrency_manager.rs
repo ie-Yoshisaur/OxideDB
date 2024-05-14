@@ -85,12 +85,12 @@ impl ConcurrencyManager {
     pub fn x_lock(&mut self, block: BlockId) -> Result<(), ConcurrencyError> {
         if !self.has_x_lock(&block) {
             self.s_lock(block.clone()).unwrap();
-            let (lock, cvar) = &*self.lock_table;
+            let (lock, condvar) = &*self.lock_table;
             let mut lock_table = lock.lock().unwrap();
             let start_time = Instant::now();
 
             while lock_table.has_other_s_locks(&block) {
-                let result = cvar.wait_timeout(lock_table, MAX_TIME).unwrap();
+                let result = condvar.wait_timeout(lock_table, MAX_TIME).unwrap();
                 lock_table = result.0;
 
                 if self.waiting_too_long(start_time) {
