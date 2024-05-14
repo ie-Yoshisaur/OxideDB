@@ -49,6 +49,9 @@ impl ConcurrencyManager {
     ///
     /// * `Result<(), ConcurrencyError>` - Result of the operation.
     pub fn s_lock(&mut self, block: BlockId) -> Result<(), ConcurrencyError> {
+        if self.locks.contains_key(&block) {
+            return Ok(());
+        }
         let (lock, condvar) = &*self.lock_table;
         let mut lock_table = lock.lock().unwrap();
         let start_time = Instant::now();
@@ -81,9 +84,9 @@ impl ConcurrencyManager {
     /// * `Result<(), ConcurrencyError>` - Result of the operation.
     pub fn x_lock(&mut self, block: BlockId) -> Result<(), ConcurrencyError> {
         if !self.has_x_lock(&block) {
+            self.s_lock(block.clone()).unwrap();
             let (lock, cvar) = &*self.lock_table;
             let mut lock_table = lock.lock().unwrap();
-            lock_table.s_lock(block.clone()).unwrap();
             let start_time = Instant::now();
 
             while lock_table.has_other_s_locks(&block) {
